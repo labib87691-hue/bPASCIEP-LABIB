@@ -1,0 +1,301 @@
+/**
+ * Phase 0 Security TDD Specification Runner (Phase 1 + Phase 2 Result Portal + Phase 3 Cloud Document Center)
+ * Verifies that adversarial payloads across public content, student PII,
+ * unpublished marksheets, unauthorized teacher publishing, unpublished cloud documents,
+ * and malicious Drive URLs return PERMISSION_DENIED under BPSC Firestore Security Rules invariants.
+ */
+
+export interface DirtyPayloadCase {
+  id: number;
+  name: string;
+  collection: string;
+  docId: string;
+  operation: 'get' | 'list' | 'create' | 'update' | 'delete';
+  auth: { uid: string; email?: string; email_verified?: boolean; role?: 'teacher' | 'student' } | null;
+  existingDoc?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
+  expectedOutcome: 'PERMISSION_DENIED';
+}
+
+export const DIRTY_DOZEN_CASES: DirtyPayloadCase[] = [
+  {
+    id: 1,
+    name: 'Unpublished Draft Result Direct Get Leak',
+    collection: 'results',
+    docId: '2026_exam_2026_annual_class-9_101',
+    operation: 'get',
+    auth: null,
+    existingDoc: {
+      workflowStatus: 'approved',
+      isPublished: false,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 2,
+    name: 'Unpublished Result List Scraping Without Filter',
+    collection: 'results',
+    docId: '*',
+    operation: 'list',
+    auth: { uid: 'student_1', email: 'student@example.com', email_verified: true, role: 'student' },
+    existingDoc: {
+      workflowStatus: 'draft',
+      isPublished: false,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 3,
+    name: 'Unpublished Subject Marks Leak',
+    collection: 'resultSubjects',
+    docId: '2026_exam_2026_annual_class-9_101_101',
+    operation: 'get',
+    auth: null,
+    existingDoc: {
+      isPublished: false,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 4,
+    name: 'Student Tampering With Published GPA',
+    collection: 'results',
+    docId: '2026_exam_2026_pre_test_class-10_101',
+    operation: 'update',
+    auth: { uid: 'student_1', email: 'student@example.com', email_verified: true, role: 'student' },
+    payload: {
+      gpa: 5.0,
+      finalStatus: 'PASS',
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 5,
+    name: 'Unauthorized Teacher Self-Publishing Result',
+    collection: 'results',
+    docId: '2026_exam_2026_half_yearly_class-5_105',
+    operation: 'create',
+    auth: { uid: 'teacher_1', email: 'teacher@bpsciepz.edu.bd', email_verified: true, role: 'teacher' },
+    payload: {
+      workflowStatus: 'published',
+      isPublished: true,
+      enteredByUid: 'teacher_1',
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 6,
+    name: 'Teacher Overwriting Already-Published Result',
+    collection: 'results',
+    docId: '2026_exam_2026_pre_test_class-10_101',
+    operation: 'update',
+    auth: { uid: 'teacher_1', email: 'teacher@bpsciepz.edu.bd', email_verified: true, role: 'teacher' },
+    existingDoc: {
+      workflowStatus: 'published',
+      isPublished: true,
+      enteredByUid: 'teacher_1',
+    },
+    payload: {
+      workflowStatus: 'draft',
+      isPublished: false,
+      obtainedTotalMarks: 750,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 7,
+    name: 'Private Student Guardian PII Scraping',
+    collection: 'students',
+    docId: '2026_class-10_101',
+    operation: 'get',
+    auth: { uid: 'visitor_1', email: 'visitor@example.com', email_verified: true },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 8,
+    name: 'Orphaned Result Write With Non-Existent Exam',
+    collection: 'results',
+    docId: '2099_fake_exam_class-10_101',
+    operation: 'create',
+    auth: { uid: 'teacher_1', email: 'teacher@bpsciepz.edu.bd', email_verified: true, role: 'teacher' },
+    payload: {
+      academicYearId: '2099',
+      examId: 'non_existent_exam',
+      workflowStatus: 'draft',
+      isPublished: false,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 9,
+    name: 'Shadow Field Injection on Result Record',
+    collection: 'results',
+    docId: '2026_exam_2026_half_yearly_class-5_109',
+    operation: 'create',
+    auth: { uid: 'admin_1', email: 'tofayel.tllt@gmail.com', email_verified: true },
+    payload: {
+      academicYearId: '2026',
+      overrideRank: 1,
+      isSuperVerified: true,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 10,
+    name: 'Unverified Admin Email Spoof on Result Publication',
+    collection: 'resultPublication',
+    docId: '2026_exam_2026_annual_class-9',
+    operation: 'update',
+    auth: { uid: 'spoof_uid', email: 'tofayel.tllt@gmail.com', email_verified: false },
+    payload: {
+      workflowStatus: 'published',
+      isPublished: true,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 11,
+    name: 'ID Poisoning Attack on Results Path',
+    collection: 'results',
+    docId: 'bad$id!@#spaces',
+    operation: 'get',
+    auth: null,
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 12,
+    name: 'Contact Inquiry PII Scraping via List',
+    collection: 'contactMessages',
+    docId: '*',
+    operation: 'list',
+    auth: { uid: 'attacker_1', email: 'user@example.com', email_verified: true },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 13,
+    name: 'Unpublished Cloud Document Direct Get Leak',
+    collection: 'cloudDocuments',
+    docId: 'demo_cloud_99_unpublished_draft',
+    operation: 'get',
+    auth: null,
+    existingDoc: {
+      title: '[DEMO TEST] Draft Internal Examination Seating Plan',
+      category: 'Office Order',
+      isPublished: false,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 14,
+    name: 'Unpublished Cloud Document List Scraping Without Filter',
+    collection: 'cloudDocuments',
+    docId: '*',
+    operation: 'list',
+    auth: { uid: 'student_1', email: 'student@example.com', email_verified: true, role: 'student' },
+    existingDoc: {
+      isPublished: false,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 15,
+    name: 'Public Unauthenticated Create on Cloud Documents',
+    collection: 'cloudDocuments',
+    docId: 'malicious_doc_01',
+    operation: 'create',
+    auth: null,
+    payload: {
+      title: 'Fake Holiday Notice',
+      category: 'Holiday List',
+      driveUrl: 'https://drive.google.com/file/d/1BPSC_FAKE_DOC_ID_12345/view',
+      isPublished: true,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 16,
+    name: 'Malicious Non-Google-Drive or JavaScript URL Injection on Cloud Document',
+    collection: 'cloudDocuments',
+    docId: 'bad_url_doc_01',
+    operation: 'create',
+    auth: { uid: 'admin_1', email: 'tofayel.tllt@gmail.com', email_verified: true },
+    payload: {
+      title: 'Phishing Payload',
+      category: 'Forms',
+      className: null,
+      subject: null,
+      academicYear: '2026',
+      description: 'Malicious external link attempt',
+      driveUrl: 'https://evil-phishing.example.com/file/d/123456789012345/view',
+      fileType: 'PDF',
+      fileSize: '1 MB',
+      isPublished: true,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 17,
+    name: 'Unauthorized Public Delete on Published Cloud Document',
+    collection: 'cloudDocuments',
+    docId: 'demo_cloud_01_class_routine',
+    operation: 'delete',
+    auth: { uid: 'teacher_1', email: 'teacher@bpsciepz.edu.bd', email_verified: true, role: 'teacher' },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 18,
+    name: 'Non-Super-Admin Role Escalation Attempt on adminUsers',
+    collection: 'adminUsers',
+    docId: 'editor_uid_01',
+    operation: 'update',
+    auth: { uid: 'editor_uid_01', email: 'editor@bpsciepz.edu.bd', email_verified: true },
+    existingDoc: {
+      uid: 'editor_uid_01',
+      email: 'editor@bpsciepz.edu.bd',
+      role: 'content_editor',
+      isActive: true,
+    },
+    payload: {
+      uid: 'editor_uid_01',
+      email: 'editor@bpsciepz.edu.bd',
+      role: 'super_admin',
+      isActive: true,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 19,
+    name: 'Immutable Activity Log Deletion Attempt',
+    collection: 'activityLogs',
+    docId: 'log_1730000000_abc123',
+    operation: 'delete',
+    auth: { uid: 'admin_1', email: 'tofayel.tllt@gmail.com', email_verified: true },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 20,
+    name: 'Unpublished Holiday Schedule Direct Get Leak',
+    collection: 'holidays',
+    docId: 'hol_draft_2026',
+    operation: 'get',
+    auth: null,
+    existingDoc: {
+      titleEn: 'Draft Exam Break',
+      isPublished: false,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+  {
+    id: 21,
+    name: 'Teacher Attempting to Modify Operational School Settings',
+    collection: 'schoolSettings',
+    docId: 'operational_main',
+    operation: 'update',
+    auth: { uid: 'teacher_1', email: 'teacher@bpsciepz.edu.bd', email_verified: true, role: 'teacher' },
+    payload: {
+      requireResultApprovalBeforePublish: false,
+    },
+    expectedOutcome: 'PERMISSION_DENIED',
+  },
+];
+

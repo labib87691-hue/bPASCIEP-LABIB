@@ -1,0 +1,1955 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Boot Connection Health Check
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+    }
+
+    // =========================================================================
+    // Global Hardened Primitives & Phase 4 RBAC Helpers
+    // =========================================================================
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isBootstrappedAdmin() {
+      return request.auth != null
+        && (request.auth.token.email == 'tofayel.tllt@gmail.com' || request.auth.token.email == 'labib87691@gmail.com')
+        && request.auth.token.email_verified == true;
+    }
+
+    function hasActiveAdminRole(allowedRoles) {
+      return isBootstrappedAdmin() || (
+        isSignedIn()
+        && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.isActive == true
+        && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.role in allowedRoles
+      ) || (
+        isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isSuperAdmin() {
+      return isBootstrappedAdmin() || (
+        isSignedIn()
+        && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.isActive == true
+        && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.role == 'super_admin'
+      );
+    }
+
+    function isAdmin() {
+      return hasActiveAdminRole([
+        'super_admin',
+        'admin',
+        'result_manager',
+        'cloud_manager',
+        'content_editor'
+      ]);
+    }
+
+    function canManageWebsiteContent() {
+      return hasActiveAdminRole(['super_admin', 'admin', 'content_editor']);
+    }
+
+    function canManageCloud() {
+      return hasActiveAdminRole(['super_admin', 'admin', 'cloud_manager']);
+    }
+
+    function canManageResults() {
+      return hasActiveAdminRole(['super_admin', 'admin', 'result_manager']);
+    }
+
+    function canManageStudents() {
+      return hasActiveAdminRole(['super_admin', 'admin', 'result_manager']);
+    }
+
+    function canManageTeachersAndAccess() {
+      return hasActiveAdminRole(['super_admin', 'admin']);
+    }
+
+    function canManageNoticesAndHolidays() {
+      return hasActiveAdminRole(['super_admin', 'admin', 'cloud_manager', 'content_editor']);
+    }
+
+    function canManageSettings() {
+      return hasActiveAdminRole(['super_admin', 'admin']);
+    }
+
+    function isAuthorizedTeacher() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.isActive == true;
+    }
+
+    function isOptionalString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isOptionalNullableString(data, field, maxLen) {
+      return !(field in data) || data[field] == null || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isOptionalNullableNumber(data, field, minVal, maxVal) {
+      return !(field in data) || data[field] == null || (data[field] is number && data[field] >= minVal && data[field] <= maxVal);
+    }
+
+    function isOptionalTimestamp(data, field) {
+      return !(field in data) || data[field] is timestamp;
+    }
+
+    function isValidSupportedClassCode(code) {
+      return code is string && code in [
+        'nursery',
+        'class-1',
+        'class-2',
+        'class-3',
+        'class-4',
+        'class-5',
+        'class-6',
+        'class-7',
+        'class-8',
+        'class-9',
+        'class-10'
+      ];
+    }
+
+    // =========================================================================
+    // Phase 1 & Phase 4 Institutional Entity Validation Blueprints
+    // =========================================================================
+
+    function isValidSiteContent(data) {
+      return data.keys().hasAll(['sectionKey', 'titleBn', 'titleEn', 'bodyBn', 'bodyEn', 'isPublished', 'updatedAt'])
+        && data.keys().hasOnly(['sectionKey', 'titleBn', 'titleEn', 'bodyBn', 'bodyEn', 'isPublished', 'updatedAt'])
+        && data.sectionKey is string && data.sectionKey.size() >= 1 && data.sectionKey.size() <= 80 && data.sectionKey.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 300
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 300
+        && data.bodyBn is string && data.bodyBn.size() >= 1 && data.bodyBn.size() <= 10000
+        && data.bodyEn is string && data.bodyEn.size() >= 1 && data.bodyEn.size() <= 10000
+        && data.isPublished is bool
+        && data.updatedAt == request.time;
+    }
+
+    function isValidBanner(data) {
+      return data.keys().hasAll(['titleBn', 'titleEn', 'imageUrl', 'order', 'isPublished'])
+        && data.keys().hasOnly(['titleBn', 'titleEn', 'subtitleBn', 'subtitleEn', 'imageUrl', 'order', 'isPublished', 'createdAt', 'updatedAt'])
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 200
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 200
+        && isOptionalString(data, 'subtitleBn', 500)
+        && isOptionalString(data, 'subtitleEn', 500)
+        && data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 600
+        && data.order is number
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'createdAt')
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidAdminMember(data) {
+      return data.keys().hasAll(['roleKey', 'name', 'designationBn', 'designationEn', 'order', 'isPublished'])
+        && data.keys().hasOnly([
+          'roleKey',
+          'name',
+          'nameBn',
+          'credentials',
+          'designationBn',
+          'designationEn',
+          'organizationBn',
+          'organizationEn',
+          'messageBn',
+          'messageEn',
+          'photoUrl',
+          'phone',
+          'email',
+          'order',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.roleKey is string && data.roleKey.size() >= 1 && data.roleKey.size() <= 60 && data.roleKey.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && isOptionalString(data, 'nameBn', 200)
+        && isOptionalString(data, 'credentials', 200)
+        && data.designationBn is string && data.designationBn.size() >= 1 && data.designationBn.size() <= 300
+        && data.designationEn is string && data.designationEn.size() >= 1 && data.designationEn.size() <= 300
+        && isOptionalString(data, 'organizationBn', 300)
+        && isOptionalString(data, 'organizationEn', 300)
+        && isOptionalString(data, 'messageBn', 8000)
+        && isOptionalString(data, 'messageEn', 8000)
+        && isOptionalString(data, 'photoUrl', 600)
+        && isOptionalString(data, 'phone', 40)
+        && isOptionalString(data, 'email', 160)
+        && data.order is number
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidGoverningBodyMember(data) {
+      return data.keys().hasAll(['name', 'boardRoleBn', 'boardRoleEn', 'designationBn', 'designationEn', 'order', 'isPublished'])
+        && data.keys().hasOnly([
+          'name',
+          'nameBn',
+          'boardRoleBn',
+          'boardRoleEn',
+          'designationBn',
+          'designationEn',
+          'photoUrl',
+          'photoMissingNote',
+          'order',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && isOptionalString(data, 'nameBn', 200)
+        && data.boardRoleBn is string && data.boardRoleBn.size() >= 1 && data.boardRoleBn.size() <= 200
+        && data.boardRoleEn is string && data.boardRoleEn.size() >= 1 && data.boardRoleEn.size() <= 200
+        && data.designationBn is string && data.designationBn.size() >= 1 && data.designationBn.size() <= 300
+        && data.designationEn is string && data.designationEn.size() >= 1 && data.designationEn.size() <= 300
+        && isOptionalString(data, 'photoUrl', 600)
+        && isOptionalString(data, 'photoMissingNote', 200)
+        && data.order is number
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidTeacher(data) {
+      return data.keys().hasAll(['serial', 'name', 'designationBn', 'designationEn', 'department', 'subjectBn', 'subjectEn', 'isPublished'])
+        && data.keys().hasOnly([
+          'serial',
+          'name',
+          'nameBn',
+          'designationBn',
+          'designationEn',
+          'department',
+          'departmentBn',
+          'subjectBn',
+          'subjectEn',
+          'qualification',
+          'photoUrl',
+          'publicEmail',
+          'publicPhone',
+          'assignedClass',
+          'assignedSection',
+          'coordinatorRoleBn',
+          'coordinatorRoleEn',
+          'employmentStatus',
+          'isActive',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.serial is number
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && isOptionalString(data, 'nameBn', 200)
+        && data.designationBn is string && data.designationBn.size() >= 1 && data.designationBn.size() <= 250
+        && data.designationEn is string && data.designationEn.size() >= 1 && data.designationEn.size() <= 250
+        && data.department is string && data.department.size() >= 1 && data.department.size() <= 120
+        && isOptionalString(data, 'departmentBn', 160)
+        && data.subjectBn is string && data.subjectBn.size() >= 1 && data.subjectBn.size() <= 200
+        && data.subjectEn is string && data.subjectEn.size() >= 1 && data.subjectEn.size() <= 200
+        && isOptionalString(data, 'qualification', 600)
+        && isOptionalString(data, 'photoUrl', 600)
+        && isOptionalString(data, 'publicEmail', 160)
+        && isOptionalString(data, 'publicPhone', 60)
+        && isOptionalString(data, 'assignedClass', 60)
+        && isOptionalString(data, 'assignedSection', 40)
+        && isOptionalString(data, 'coordinatorRoleBn', 160)
+        && isOptionalString(data, 'coordinatorRoleEn', 160)
+        && (!('employmentStatus' in data) || data.employmentStatus in ['active', 'on_leave', 'inactive'])
+        && (!('isActive' in data) || data.isActive is bool)
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidStaffMember(data) {
+      return data.keys().hasAll(['serial', 'name', 'designationBn', 'designationEn', 'isPublished'])
+        && data.keys().hasOnly([
+          'serial',
+          'name',
+          'nameBn',
+          'designationBn',
+          'designationEn',
+          'photoUrl',
+          'publicPhone',
+          'publicEmail',
+          'employmentStatus',
+          'isActive',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.serial is number
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && isOptionalString(data, 'nameBn', 200)
+        && data.designationBn is string && data.designationBn.size() >= 1 && data.designationBn.size() <= 200
+        && data.designationEn is string && data.designationEn.size() >= 1 && data.designationEn.size() <= 200
+        && isOptionalString(data, 'photoUrl', 600)
+        && isOptionalString(data, 'publicPhone', 60)
+        && isOptionalString(data, 'publicEmail', 160)
+        && (!('employmentStatus' in data) || data.employmentStatus in ['active', 'on_leave', 'inactive'])
+        && (!('isActive' in data) || data.isActive is bool)
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidAcademicClass(data) {
+      return data.keys().hasAll(['levelOrder', 'classCode', 'nameBn', 'nameEn', 'sectionGroupBn', 'sectionGroupEn', 'descriptionBn', 'descriptionEn', 'isPublished'])
+        && data.keys().hasOnly(['levelOrder', 'classCode', 'nameBn', 'nameEn', 'sectionGroupBn', 'sectionGroupEn', 'descriptionBn', 'descriptionEn', 'routineUrl', 'syllabusUrl', 'isPublished'])
+        && data.levelOrder is number
+        && data.classCode is string && data.classCode.size() >= 1 && data.classCode.size() <= 40 && data.classCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.nameBn is string && data.nameBn.size() >= 1 && data.nameBn.size() <= 120
+        && data.nameEn is string && data.nameEn.size() >= 1 && data.nameEn.size() <= 120
+        && data.sectionGroupBn is string && data.sectionGroupBn.size() >= 1 && data.sectionGroupBn.size() <= 200
+        && data.sectionGroupEn is string && data.sectionGroupEn.size() >= 1 && data.sectionGroupEn.size() <= 200
+        && data.descriptionBn is string && data.descriptionBn.size() >= 1 && data.descriptionBn.size() <= 1500
+        && data.descriptionEn is string && data.descriptionEn.size() >= 1 && data.descriptionEn.size() <= 1500
+        && isOptionalString(data, 'routineUrl', 500)
+        && isOptionalString(data, 'syllabusUrl', 500)
+        && data.isPublished is bool;
+    }
+
+    function isValidAcademicResource(data) {
+      return data.keys().hasAll(['resourceType', 'titleBn', 'titleEn', 'classNameBn', 'classNameEn', 'publishDate', 'order', 'isPublished'])
+        && data.keys().hasOnly(['resourceType', 'titleBn', 'titleEn', 'classNameBn', 'classNameEn', 'publishDate', 'fileUrl', 'order', 'isPublished'])
+        && data.resourceType is string && data.resourceType in ['class_routine', 'exam_routine', 'syllabus', 'course_plan', 'calendar']
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 300
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 300
+        && data.classNameBn is string && data.classNameBn.size() >= 1 && data.classNameBn.size() <= 120
+        && data.classNameEn is string && data.classNameEn.size() >= 1 && data.classNameEn.size() <= 120
+        && data.publishDate is string && data.publishDate.size() >= 1 && data.publishDate.size() <= 40
+        && isOptionalString(data, 'fileUrl', 500)
+        && data.order is number
+        && data.isPublished is bool;
+    }
+
+    function isValidNotice(data) {
+      return data.keys().hasAll(['serial', 'titleBn', 'titleEn', 'category', 'publishDate', 'summaryBn', 'summaryEn', 'isImportant', 'isPublished'])
+        && data.keys().hasOnly([
+          'serial',
+          'titleBn',
+          'titleEn',
+          'category',
+          'publishDate',
+          'year',
+          'summaryBn',
+          'summaryEn',
+          'detailsBn',
+          'detailsEn',
+          'attachmentUrl',
+          'attachmentType',
+          'externalUrl',
+          'isImportant',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.serial is number
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 400
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 400
+        && data.category is string && data.category in ['academic', 'admission', 'examination', 'recruitment', 'general']
+        && data.publishDate is string && data.publishDate.size() >= 1 && data.publishDate.size() <= 40
+        && isOptionalString(data, 'year', 10)
+        && data.summaryBn is string && data.summaryBn.size() >= 1 && data.summaryBn.size() <= 2000
+        && data.summaryEn is string && data.summaryEn.size() >= 1 && data.summaryEn.size() <= 2000
+        && isOptionalString(data, 'detailsBn', 4000)
+        && isOptionalString(data, 'detailsEn', 4000)
+        && isOptionalString(data, 'attachmentUrl', 600)
+        && (!('attachmentType' in data) || data.attachmentType in ['pdf', 'image'])
+        && isOptionalString(data, 'externalUrl', 600)
+        && data.isImportant is bool
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidGalleryItem(data) {
+      return data.keys().hasAll(['titleBn', 'titleEn', 'category', 'imageUrl', 'order', 'isPublished'])
+        && data.keys().hasOnly(['titleBn', 'titleEn', 'category', 'imageUrl', 'dateLabel', 'order', 'isPublished', 'updatedAt'])
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 250
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 250
+        && data.category is string && data.category in ['campus', 'events', 'science_fair', 'cultural', 'guardians_meeting', 'transport']
+        && data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 600
+        && isOptionalString(data, 'dateLabel', 80)
+        && data.order is number
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidNewsItem(data) {
+      return data.keys().hasAll(['titleBn', 'titleEn', 'publishDate', 'summaryBn', 'summaryEn', 'isPublished'])
+        && data.keys().hasOnly([
+          'type',
+          'titleBn',
+          'titleEn',
+          'publishDate',
+          'category',
+          'categoryBn',
+          'categoryEn',
+          'summaryBn',
+          'summaryEn',
+          'detailsBn',
+          'detailsEn',
+          'imageUrl',
+          'extraImages',
+          'attachmentUrl',
+          'isPublished',
+          'updatedAt'
+        ])
+        && (!('type' in data) || data.type in ['achievement', 'event', 'news'])
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 400
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 400
+        && data.publishDate is string && data.publishDate.size() >= 1 && data.publishDate.size() <= 80
+        && isOptionalString(data, 'category', 100)
+        && isOptionalString(data, 'categoryBn', 100)
+        && isOptionalString(data, 'categoryEn', 100)
+        && data.summaryBn is string && data.summaryBn.size() >= 1 && data.summaryBn.size() <= 3000
+        && data.summaryEn is string && data.summaryEn.size() >= 1 && data.summaryEn.size() <= 3000
+        && isOptionalString(data, 'detailsBn', 4000)
+        && isOptionalString(data, 'detailsEn', 4000)
+        && isOptionalString(data, 'imageUrl', 600)
+        && (!('extraImages' in data) || (data.extraImages is list && data.extraImages.size() <= 10))
+        && isOptionalString(data, 'attachmentUrl', 600)
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidEventItem(data) {
+      return data.keys().hasAll(['titleBn', 'titleEn', 'eventDate', 'descriptionBn', 'descriptionEn', 'isPublished'])
+        && data.keys().hasOnly(['titleBn', 'titleEn', 'eventDate', 'descriptionBn', 'descriptionEn', 'imageUrl', 'isPublished'])
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 300
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 300
+        && data.eventDate is string && data.eventDate.size() >= 1 && data.eventDate.size() <= 60
+        && data.descriptionBn is string && data.descriptionBn.size() >= 1 && data.descriptionBn.size() <= 2500
+        && data.descriptionEn is string && data.descriptionEn.size() >= 1 && data.descriptionEn.size() <= 2500
+        && isOptionalString(data, 'imageUrl', 500)
+        && data.isPublished is bool;
+    }
+
+    function isValidFacility(data) {
+      return data.keys().hasAll(['titleBn', 'titleEn', 'descriptionBn', 'descriptionEn', 'order', 'isPublished'])
+        && data.keys().hasOnly([
+          'titleBn',
+          'titleEn',
+          'descriptionBn',
+          'descriptionEn',
+          'highlightsBn',
+          'highlightsEn',
+          'imageUrl',
+          'order',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 200
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 200
+        && data.descriptionBn is string && data.descriptionBn.size() >= 1 && data.descriptionBn.size() <= 1500
+        && data.descriptionEn is string && data.descriptionEn.size() >= 1 && data.descriptionEn.size() <= 1500
+        && (!('highlightsBn' in data) || (data.highlightsBn is list && data.highlightsBn.size() <= 12))
+        && (!('highlightsEn' in data) || (data.highlightsEn is list && data.highlightsEn.size() <= 12))
+        && isOptionalString(data, 'imageUrl', 600)
+        && data.order is number
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidTransportInfo(data) {
+      return data.keys().hasAll(['titleBn', 'titleEn', 'descriptionBn', 'descriptionEn', 'order', 'isPublished'])
+        && data.keys().hasOnly(['titleBn', 'titleEn', 'descriptionBn', 'descriptionEn', 'imageUrl', 'order', 'isPublished'])
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 200
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 200
+        && data.descriptionBn is string && data.descriptionBn.size() >= 1 && data.descriptionBn.size() <= 1500
+        && data.descriptionEn is string && data.descriptionEn.size() >= 1 && data.descriptionEn.size() <= 1500
+        && isOptionalString(data, 'imageUrl', 500)
+        && data.order is number
+        && data.isPublished is bool;
+    }
+
+    function isValidSiteSetting(data) {
+      return data.keys().hasAll(['schoolNameBn', 'schoolNameEn', 'eiin', 'establishedYear', 'addressBn', 'addressEn', 'phonePrimary', 'emailPrimary', 'totalTeachers', 'totalClasses', 'isPublished'])
+        && data.keys().hasOnly([
+          'schoolNameBn',
+          'schoolNameEn',
+          'shortName',
+          'eiin',
+          'establishedYear',
+          'inauguratedDateBn',
+          'inauguratedDateEn',
+          'addressBn',
+          'addressEn',
+          'phonePrimary',
+          'phoneSecondary',
+          'emailPrimary',
+          'emailSecondary',
+          'facebookUrl',
+          'mapEmbedUrl',
+          'totalStudents',
+          'totalTeachers',
+          'totalStaff',
+          'totalClasses',
+          'logoUrl',
+          'youtubeUrl',
+          'linkedinUrl',
+          'footerTaglineEn',
+          'footerTaglineBn',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.schoolNameBn is string && data.schoolNameBn.size() >= 1 && data.schoolNameBn.size() <= 250
+        && data.schoolNameEn is string && data.schoolNameEn.size() >= 1 && data.schoolNameEn.size() <= 250
+        && isOptionalString(data, 'shortName', 40)
+        && data.eiin is string && data.eiin.size() >= 1 && data.eiin.size() <= 30
+        && data.establishedYear is string && data.establishedYear.size() >= 1 && data.establishedYear.size() <= 20
+        && isOptionalString(data, 'inauguratedDateBn', 120)
+        && isOptionalString(data, 'inauguratedDateEn', 120)
+        && data.addressBn is string && data.addressBn.size() >= 1 && data.addressBn.size() <= 300
+        && data.addressEn is string && data.addressEn.size() >= 1 && data.addressEn.size() <= 300
+        && data.phonePrimary is string && data.phonePrimary.size() >= 1 && data.phonePrimary.size() <= 40
+        && isOptionalString(data, 'phoneSecondary', 40)
+        && data.emailPrimary is string && data.emailPrimary.size() >= 1 && data.emailPrimary.size() <= 160
+        && isOptionalString(data, 'emailSecondary', 160)
+        && isOptionalString(data, 'facebookUrl', 400)
+        && isOptionalString(data, 'mapEmbedUrl', 1000)
+        && isOptionalString(data, 'totalStudents', 40)
+        && data.totalTeachers is number
+        && isOptionalNullableNumber(data, 'totalStaff', 0, 1000)
+        && data.totalClasses is number
+        && isOptionalString(data, 'logoUrl', 600)
+        && isOptionalString(data, 'youtubeUrl', 400)
+        && isOptionalString(data, 'linkedinUrl', 400)
+        && isOptionalString(data, 'footerTaglineEn', 300)
+        && isOptionalString(data, 'footerTaglineBn', 300)
+        && data.isPublished is bool
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidContactMessage(data) {
+      return data.keys().hasAll(['senderName', 'senderEmail', 'senderPhone', 'subject', 'message', 'status', 'createdAt'])
+        && data.keys().hasOnly(['senderName', 'senderEmail', 'senderPhone', 'subject', 'message', 'status', 'createdAt', 'updatedAt'])
+        && data.senderName is string && data.senderName.size() >= 2 && data.senderName.size() <= 120
+        && data.senderEmail is string && data.senderEmail.size() >= 5 && data.senderEmail.size() <= 160 && data.senderEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && data.senderPhone is string && data.senderPhone.size() >= 6 && data.senderPhone.size() <= 30 && data.senderPhone.matches('^[0-9+\\-\\s()]{6,30}$')
+        && data.subject is string && data.subject.size() >= 3 && data.subject.size() <= 200
+        && data.message is string && data.message.size() >= 10 && data.message.size() <= 3000
+        && data.status is string && data.status in ['new', 'read', 'archived']
+        && data.createdAt is timestamp
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidLegacyAdminUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt'])
+        && data.keys().hasOnly(['email', 'role', 'createdAt'])
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.role is string && data.role in ['master_admin', 'editor']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidAdminUserRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'isActive', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'isActive', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.role is string && data.role in [
+          'super_admin',
+          'admin',
+          'result_manager',
+          'cloud_manager',
+          'content_editor'
+        ]
+        && data.isActive is bool
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidSchoolOperationalSetting(data) {
+      return data.keys().hasAll([
+          'currentAcademicYear',
+          'admissionOpen',
+          'resultPortalEnabled',
+          'defaultShowPositionInResults',
+          'requireResultApprovalBeforePublish',
+          'cloudCenterEnabled',
+          'cloudItemsPerPage',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'currentAcademicYear',
+          'admissionOpen',
+          'resultPortalEnabled',
+          'defaultShowPositionInResults',
+          'requireResultApprovalBeforePublish',
+          'cloudCenterEnabled',
+          'cloudItemsPerPage',
+          'maintenanceBannerTextEn',
+          'maintenanceBannerTextBn',
+          'updatedAt'
+        ])
+        && data.currentAcademicYear is string && data.currentAcademicYear.size() >= 4 && data.currentAcademicYear.size() <= 20
+        && data.admissionOpen is bool
+        && data.resultPortalEnabled is bool
+        && data.defaultShowPositionInResults is bool
+        && data.requireResultApprovalBeforePublish is bool
+        && data.cloudCenterEnabled is bool
+        && data.cloudItemsPerPage is number && data.cloudItemsPerPage >= 6 && data.cloudItemsPerPage <= 48
+        && isOptionalString(data, 'maintenanceBannerTextEn', 300)
+        && isOptionalString(data, 'maintenanceBannerTextBn', 300)
+        && data.updatedAt == request.time;
+    }
+
+    function isValidHoliday(data) {
+      return data.keys().hasAll([
+          'titleEn',
+          'titleBn',
+          'isMultiDay',
+          'startDate',
+          'endDate',
+          'holidayType',
+          'applicableClass',
+          'academicYear',
+          'isPublished',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'titleEn',
+          'titleBn',
+          'descriptionEn',
+          'descriptionBn',
+          'isMultiDay',
+          'startDate',
+          'endDate',
+          'holidayType',
+          'applicableClass',
+          'academicYear',
+          'driveUrl',
+          'isPublished',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.titleEn is string && data.titleEn.size() >= 1 && data.titleEn.size() <= 220
+        && data.titleBn is string && data.titleBn.size() >= 1 && data.titleBn.size() <= 220
+        && isOptionalString(data, 'descriptionEn', 1200)
+        && isOptionalString(data, 'descriptionBn', 1200)
+        && data.isMultiDay is bool
+        && data.startDate is string && data.startDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.endDate is string && data.endDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.endDate >= data.startDate
+        && data.holidayType is string && data.holidayType in ['national', 'institutional', 'exam_break', 'vacation', 'class_specific']
+        && data.applicableClass is string && data.applicableClass.size() >= 1 && data.applicableClass.size() <= 40
+        && data.academicYear is string && data.academicYear.size() >= 4 && data.academicYear.size() <= 20
+        && isOptionalNullableString(data, 'driveUrl', 600)
+        && data.isPublished is bool
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidTeacherAccessRequest(data) {
+      return data.keys().hasAll([
+          'fullName',
+          'email',
+          'teacherId',
+          'requestedClasses',
+          'requestedSubjects',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'applicantUid',
+          'fullName',
+          'email',
+          'phone',
+          'teacherId',
+          'designation',
+          'department',
+          'requestedClasses',
+          'requestedSubjects',
+          'status',
+          'rejectionReason',
+          'reviewedByUid',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isOptionalNullableString(data, 'applicantUid', 128)
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 160
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && isOptionalString(data, 'phone', 30)
+        && data.teacherId is string && data.teacherId.size() >= 1 && data.teacherId.size() <= 40
+        && isOptionalString(data, 'designation', 120)
+        && isOptionalString(data, 'department', 120)
+        && data.requestedClasses is list && data.requestedClasses.size() <= 11
+        && data.requestedSubjects is list && data.requestedSubjects.size() <= 20
+        && data.status is string && data.status in ['pending', 'approved', 'rejected']
+        && isOptionalNullableString(data, 'rejectionReason', 400)
+        && isOptionalNullableString(data, 'reviewedByUid', 128)
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasAll([
+          'actorUid',
+          'actorEmail',
+          'actorRole',
+          'actionType',
+          'targetCollection',
+          'targetId',
+          'summary',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'actorUid',
+          'actorEmail',
+          'actorRole',
+          'actionType',
+          'targetCollection',
+          'targetId',
+          'summary',
+          'metadata',
+          'createdAt'
+        ])
+        && data.actorUid is string && data.actorUid == request.auth.uid
+        && data.actorEmail is string && data.actorEmail.size() >= 3 && data.actorEmail.size() <= 160
+        && data.actorRole is string && data.actorRole in [
+          'super_admin',
+          'admin',
+          'result_manager',
+          'cloud_manager',
+          'content_editor'
+        ]
+        && data.actionType is string && data.actionType.size() >= 2 && data.actionType.size() <= 60
+        && data.targetCollection is string && data.targetCollection.size() >= 1 && data.targetCollection.size() <= 60
+        && data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128
+        && data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 400
+        && (!('metadata' in data) || (data.metadata is map && data.metadata.keys().size() <= 12))
+        && data.createdAt == request.time;
+    }
+
+    // =========================================================================
+    // Phase 2 Result Portal & Result Management Entity Validation Blueprints
+    // =========================================================================
+
+    function isValidAuthorizedTeacher(data) {
+      return data.keys().hasAll(['email', 'teacherId', 'isActive', 'createdAt'])
+        && data.keys().hasOnly([
+          'uid',
+          'email',
+          'fullName',
+          'teacherId',
+          'teacherRole',
+          'assignedClasses',
+          'assignedSections',
+          'assignedSubjects',
+          'isClassTeacher',
+          'classTeacherOf',
+          'canEnterMarks',
+          'canSubmitResults',
+          'canTakeAttendance',
+          'canViewStudents',
+          'canAccessCloud',
+          'canViewNotices',
+          'canEditProfile',
+          'canEditDraftMarks',
+          'phone',
+          'designation',
+          'department',
+          'qualification',
+          'photoUrl',
+          'bio',
+          'officeHours',
+          'isActive',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isOptionalString(data, 'uid', 128)
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 160
+        && isOptionalString(data, 'fullName', 160)
+        && data.teacherId is string && data.teacherId.size() >= 1 && data.teacherId.size() <= 120
+        && (!('teacherRole' in data) || data.teacherRole in ['subject_teacher', 'class_teacher'])
+        && (!('assignedClasses' in data) || (data.assignedClasses is list && data.assignedClasses.size() <= 11))
+        && (!('assignedSections' in data) || (data.assignedSections is list && data.assignedSections.size() <= 10))
+        && (!('assignedSubjects' in data) || (data.assignedSubjects is list && data.assignedSubjects.size() <= 20))
+        && (!('isClassTeacher' in data) || data.isClassTeacher is bool)
+        && isOptionalNullableString(data, 'classTeacherOf', 60)
+        && (!('canEnterMarks' in data) || data.canEnterMarks is bool)
+        && (!('canSubmitResults' in data) || data.canSubmitResults is bool)
+        && (!('canTakeAttendance' in data) || data.canTakeAttendance is bool)
+        && (!('canViewStudents' in data) || data.canViewStudents is bool)
+        && (!('canAccessCloud' in data) || data.canAccessCloud is bool)
+        && (!('canViewNotices' in data) || data.canViewNotices is bool)
+        && (!('canEditProfile' in data) || data.canEditProfile is bool)
+        && (!('canEditDraftMarks' in data) || data.canEditDraftMarks is bool)
+        && isOptionalString(data, 'phone', 40)
+        && isOptionalString(data, 'designation', 120)
+        && isOptionalString(data, 'department', 120)
+        && isOptionalString(data, 'qualification', 600)
+        && isOptionalString(data, 'photoUrl', 600)
+        && isOptionalString(data, 'bio', 2000)
+        && isOptionalString(data, 'officeHours', 200)
+        && data.isActive is bool
+        && data.createdAt is timestamp
+        && isOptionalTimestamp(data, 'updatedAt');
+    }
+
+    function isValidTeacherMarkSubmission(data) {
+      return data.keys().hasAll([
+          'teacherUid',
+          'teacherId',
+          'teacherName',
+          'academicYearId',
+          'examId',
+          'classCode',
+          'subjectCode',
+          'subjectName',
+          'totalCandidates',
+          'submittedMarksCount',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'teacherUid',
+          'teacherId',
+          'teacherName',
+          'teacherEmail',
+          'academicYearId',
+          'academicYearLabelBn',
+          'academicYearLabelEn',
+          'examId',
+          'examNameBn',
+          'examNameEn',
+          'classCode',
+          'classNameBn',
+          'classNameEn',
+          'section',
+          'subjectId',
+          'subjectCode',
+          'subjectName',
+          'subjectNameBn',
+          'subjectNameEn',
+          'fullMarks',
+          'passMarks',
+          'hasComponents',
+          'hasPractical',
+          'totalCandidates',
+          'submittedMarksCount',
+          'passCount',
+          'failCount',
+          'status',
+          'rejectionReason',
+          'entries',
+          'submittedAt',
+          'reviewedBy',
+          'reviewedAt',
+          'notes',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.teacherUid is string && data.teacherUid.size() >= 1 && data.teacherUid.size() <= 128
+        && data.teacherId is string && data.teacherId.size() >= 1 && data.teacherId.size() <= 120
+        && data.teacherName is string && data.teacherName.size() >= 1 && data.teacherName.size() <= 160
+        && isOptionalString(data, 'teacherEmail', 160)
+        && data.academicYearId is string && data.academicYearId.size() >= 1 && data.academicYearId.size() <= 60
+        && isOptionalString(data, 'academicYearLabelBn', 120)
+        && isOptionalString(data, 'academicYearLabelEn', 120)
+        && data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 100
+        && isOptionalString(data, 'examNameBn', 200)
+        && isOptionalString(data, 'examNameEn', 200)
+        && isValidSupportedClassCode(data.classCode)
+        && isOptionalString(data, 'classNameBn', 80)
+        && isOptionalString(data, 'classNameEn', 80)
+        && isOptionalString(data, 'section', 40)
+        && isOptionalString(data, 'subjectId', 100)
+        && data.subjectCode is string && data.subjectCode.size() >= 1 && data.subjectCode.size() <= 30
+        && data.subjectName is string && data.subjectName.size() >= 1 && data.subjectName.size() <= 160
+        && isOptionalString(data, 'subjectNameBn', 160)
+        && isOptionalString(data, 'subjectNameEn', 160)
+        && isOptionalNullableNumber(data, 'fullMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'passMarks', 0, 500)
+        && (!('hasComponents' in data) || data.hasComponents is bool)
+        && (!('hasPractical' in data) || data.hasPractical is bool)
+        && data.totalCandidates is number && data.totalCandidates >= 0 && data.totalCandidates <= 1000
+        && data.submittedMarksCount is number && data.submittedMarksCount >= 0 && data.submittedMarksCount <= 1000
+        && isOptionalNullableNumber(data, 'passCount', 0, 1000)
+        && isOptionalNullableNumber(data, 'failCount', 0, 1000)
+        && data.status is string && data.status in ['draft', 'submitted', 'approved', 'rejected']
+        && isOptionalNullableString(data, 'rejectionReason', 500)
+        && (!('entries' in data) || (data.entries is list && data.entries.size() <= 200))
+        && isOptionalTimestamp(data, 'submittedAt')
+        && isOptionalNullableString(data, 'reviewedBy', 128)
+        && isOptionalTimestamp(data, 'reviewedAt')
+        && isOptionalString(data, 'notes', 1000)
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidAttendanceRecord(data) {
+      return data.keys().hasAll([
+          'academicYearId',
+          'classCode',
+          'date',
+          'teacherUid',
+          'teacherId',
+          'teacherName',
+          'studentAttendance',
+          'totalStudents',
+          'presentCount',
+          'absentCount',
+          'lateCount',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'academicYearId',
+          'classCode',
+          'className',
+          'classNameBn',
+          'classNameEn',
+          'section',
+          'date',
+          'teacherUid',
+          'teacherId',
+          'teacherName',
+          'studentAttendance',
+          'totalStudents',
+          'presentCount',
+          'absentCount',
+          'lateCount',
+          'remarks',
+          'isFinalized',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.academicYearId is string && data.academicYearId.size() >= 4 && data.academicYearId.size() <= 20
+        && isValidSupportedClassCode(data.classCode)
+        && isOptionalString(data, 'className', 80)
+        && isOptionalString(data, 'classNameBn', 80)
+        && isOptionalString(data, 'classNameEn', 80)
+        && isOptionalString(data, 'section', 40)
+        && data.date is string && data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.teacherUid is string && data.teacherUid.size() >= 1 && data.teacherUid.size() <= 128
+        && data.teacherId is string && data.teacherId.size() >= 1 && data.teacherId.size() <= 120
+        && data.teacherName is string && data.teacherName.size() >= 1 && data.teacherName.size() <= 160
+        && data.studentAttendance is map
+        && data.totalStudents is number && data.totalStudents >= 0 && data.totalStudents <= 500
+        && data.presentCount is number && data.presentCount >= 0 && data.presentCount <= 500
+        && data.absentCount is number && data.absentCount >= 0 && data.absentCount <= 500
+        && data.lateCount is number && data.lateCount >= 0 && data.lateCount <= 500
+        && isOptionalString(data, 'remarks', 500)
+        && (!('isFinalized' in data) || data.isFinalized is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidAcademicYear(data) {
+      return data.keys().hasAll(['yearCode', 'labelBn', 'labelEn', 'isCurrent', 'isActive', 'order', 'updatedAt'])
+        && data.keys().hasOnly(['yearCode', 'labelBn', 'labelEn', 'isCurrent', 'isActive', 'order', 'updatedAt'])
+        && data.yearCode is string && data.yearCode.size() >= 4 && data.yearCode.size() <= 20 && data.yearCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.labelBn is string && data.labelBn.size() >= 1 && data.labelBn.size() <= 120
+        && data.labelEn is string && data.labelEn.size() >= 1 && data.labelEn.size() <= 120
+        && data.isCurrent is bool
+        && data.isActive is bool
+        && data.order is number
+        && data.updatedAt == request.time;
+    }
+
+    function isValidExamination(data) {
+      return data.keys().hasAll(['examCode', 'academicYearId', 'nameBn', 'nameEn', 'termType', 'applicableClasses', 'showPosition', 'isActive', 'order', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['examCode', 'academicYearId', 'nameBn', 'nameEn', 'termType', 'applicableClasses', 'examSessionBn', 'examSessionEn', 'showPosition', 'isActive', 'order', 'createdAt', 'updatedAt'])
+        && data.examCode is string && data.examCode.size() >= 1 && data.examCode.size() <= 60 && data.examCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.academicYearId is string && data.academicYearId.size() >= 1 && data.academicYearId.size() <= 60 && data.academicYearId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.nameBn is string && data.nameBn.size() >= 1 && data.nameBn.size() <= 200
+        && data.nameEn is string && data.nameEn.size() >= 1 && data.nameEn.size() <= 200
+        && data.termType is string && data.termType in ['mid_term_1', 'half_yearly', 'mid_term_2', 'annual', 'pre_test', 'test', 'model_test']
+        && data.applicableClasses is list && data.applicableClasses.size() >= 1 && data.applicableClasses.size() <= 11
+        && data.applicableClasses[0] is string && data.applicableClasses[0].size() <= 20
+        && isOptionalString(data, 'examSessionBn', 80)
+        && isOptionalString(data, 'examSessionEn', 80)
+        && data.showPosition is bool
+        && data.isActive is bool
+        && data.order is number
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['academicYearId', 'classCode', 'rollNumber', 'fullNameEn', 'isActive', 'updatedAt'])
+        && data.keys().hasOnly(['studentCode', 'academicYearId', 'classCode', 'rollNumber', 'fullNameEn', 'fullNameBn', 'section', 'groupNameEn', 'groupNameBn', 'guardianName', 'guardianPhone', 'isActive', 'updatedAt'])
+        && isOptionalString(data, 'studentCode', 60)
+        && data.academicYearId is string && data.academicYearId.size() >= 1 && data.academicYearId.size() <= 60 && data.academicYearId.matches('^[a-zA-Z0-9_\\-]+$')
+        && isValidSupportedClassCode(data.classCode)
+        && data.rollNumber is string && data.rollNumber.size() >= 1 && data.rollNumber.size() <= 6 && data.rollNumber.matches('^[1-9][0-9]{0,5}$')
+        && data.fullNameEn is string && data.fullNameEn.size() >= 1 && data.fullNameEn.size() <= 160
+        && isOptionalString(data, 'fullNameBn', 160)
+        && isOptionalString(data, 'section', 40)
+        && isOptionalString(data, 'groupNameEn', 60)
+        && isOptionalString(data, 'groupNameBn', 60)
+        && isOptionalString(data, 'guardianName', 160)
+        && isOptionalString(data, 'guardianPhone', 30)
+        && data.isActive is bool
+        && data.updatedAt == request.time;
+    }
+
+    function isValidSubjectConfig(data) {
+      return data.keys().hasAll(['subjectCode', 'classCode', 'nameBn', 'nameEn', 'fullMarks', 'passMarks', 'hasComponents', 'hasPractical', 'isOptional', 'displayOrder', 'isActive', 'updatedAt'])
+        && data.keys().hasOnly(['subjectCode', 'classCode', 'nameBn', 'nameEn', 'fullMarks', 'passMarks', 'hasComponents', 'writtenFullMarks', 'writtenPassMarks', 'mcqFullMarks', 'mcqPassMarks', 'hasPractical', 'practicalFullMarks', 'practicalPassMarks', 'isOptional', 'displayOrder', 'isActive', 'updatedAt'])
+        && data.subjectCode is string && data.subjectCode.size() >= 1 && data.subjectCode.size() <= 30 && data.subjectCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && isValidSupportedClassCode(data.classCode)
+        && data.nameBn is string && data.nameBn.size() >= 1 && data.nameBn.size() <= 160
+        && data.nameEn is string && data.nameEn.size() >= 1 && data.nameEn.size() <= 160
+        && data.fullMarks is number && data.fullMarks > 0 && data.fullMarks <= 500
+        && data.passMarks is number && data.passMarks >= 0 && data.passMarks <= data.fullMarks
+        && data.hasComponents is bool
+        && isOptionalNullableNumber(data, 'writtenFullMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'writtenPassMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'mcqFullMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'mcqPassMarks', 0, 500)
+        && data.hasPractical is bool
+        && isOptionalNullableNumber(data, 'practicalFullMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'practicalPassMarks', 0, 500)
+        && data.isOptional is bool
+        && data.displayOrder is number
+        && data.isActive is bool
+        && data.updatedAt == request.time;
+    }
+
+    function isValidGradingRule(data) {
+      return data.keys().hasAll(['ruleCode', 'nameBn', 'nameEn', 'descriptionBn', 'descriptionEn', 'maxGpa', 'defaultPassPercentage', 'requireComponentPass', 'enableOptionalBonus', 'optionalBonusThreshold', 'calculateGpa', 'calculatePercentage', 'gradeScale', 'isActive', 'updatedAt'])
+        && data.keys().hasOnly(['ruleCode', 'nameBn', 'nameEn', 'descriptionBn', 'descriptionEn', 'maxGpa', 'defaultPassPercentage', 'requireComponentPass', 'enableOptionalBonus', 'optionalBonusThreshold', 'calculateGpa', 'calculatePercentage', 'gradeScale', 'isActive', 'updatedAt'])
+        && data.ruleCode is string && data.ruleCode.size() >= 1 && data.ruleCode.size() <= 60 && data.ruleCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.nameBn is string && data.nameBn.size() >= 1 && data.nameBn.size() <= 200
+        && data.nameEn is string && data.nameEn.size() >= 1 && data.nameEn.size() <= 200
+        && data.descriptionBn is string && data.descriptionBn.size() >= 1 && data.descriptionBn.size() <= 800
+        && data.descriptionEn is string && data.descriptionEn.size() >= 1 && data.descriptionEn.size() <= 800
+        && data.maxGpa is number && data.maxGpa >= 1 && data.maxGpa <= 10
+        && data.defaultPassPercentage is number && data.defaultPassPercentage >= 0 && data.defaultPassPercentage <= 100
+        && data.requireComponentPass is bool
+        && data.enableOptionalBonus is bool
+        && data.optionalBonusThreshold is number && data.optionalBonusThreshold >= 0 && data.optionalBonusThreshold <= 10
+        && data.calculateGpa is bool
+        && data.calculatePercentage is bool
+        && data.gradeScale is list && data.gradeScale.size() >= 1 && data.gradeScale.size() <= 12
+        && data.gradeScale[0] is map
+        && data.isActive is bool
+        && data.updatedAt == request.time;
+    }
+
+    function isValidResultPublication(data) {
+      return data.keys().hasAll(['academicYearId', 'examId', 'classCode', 'workflowStatus', 'isPublished', 'showPosition', 'isActive', 'updatedAt'])
+        && data.keys().hasOnly([
+          'academicYearId',
+          'examId',
+          'classCode',
+          'workflowStatus',
+          'isPublished',
+          'rejectionReason',
+          'publishedDateLabelBn',
+          'publishedDateLabelEn',
+          'showPosition',
+          'totalCandidates',
+          'passCount',
+          'isActive',
+          'updatedAt'
+        ])
+        && data.academicYearId is string && data.academicYearId.size() >= 1 && data.academicYearId.size() <= 60 && data.academicYearId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 100 && data.examId.matches('^[a-zA-Z0-9_\\-]+$')
+        && isValidSupportedClassCode(data.classCode)
+        && data.workflowStatus is string && data.workflowStatus in ['draft', 'submitted', 'approved', 'rejected', 'published', 'unpublished']
+        && data.isPublished is bool
+        && ((data.isPublished == true && data.workflowStatus == 'published') || (data.isPublished == false && data.workflowStatus != 'published'))
+        && isOptionalNullableString(data, 'rejectionReason', 400)
+        && isOptionalString(data, 'publishedDateLabelBn', 60)
+        && isOptionalString(data, 'publishedDateLabelEn', 60)
+        && data.showPosition is bool
+        && isOptionalNullableNumber(data, 'totalCandidates', 0, 10000)
+        && isOptionalNullableNumber(data, 'passCount', 0, 10000)
+        && data.isActive is bool
+        && data.updatedAt == request.time;
+    }
+
+    function isValidStudentResult(data) {
+      return data.keys().hasAll(['academicYearId', 'academicYearLabelBn', 'academicYearLabelEn', 'examId', 'examNameBn', 'examNameEn', 'classCode', 'classNameBn', 'classNameEn', 'rollNumber', 'studentId', 'studentNameEn', 'gradingRuleId', 'totalFullMarks', 'obtainedTotalMarks', 'calculateGpa', 'calculatePercentage', 'maxGpa', 'letterGrade', 'finalStatus', 'compulsorySubjectCount', 'failedCompulsoryCount', 'showPosition', 'workflowStatus', 'isPublished', 'isDemoRecord', 'enteredByUid', 'updatedAt'])
+        && data.keys().hasOnly([
+          'academicYearId',
+          'academicYearLabelBn',
+          'academicYearLabelEn',
+          'examId',
+          'examNameBn',
+          'examNameEn',
+          'classCode',
+          'classNameBn',
+          'classNameEn',
+          'rollNumber',
+          'studentId',
+          'studentCode',
+          'studentNameEn',
+          'studentNameBn',
+          'section',
+          'groupNameEn',
+          'groupNameBn',
+          'gradingRuleId',
+          'totalFullMarks',
+          'obtainedTotalMarks',
+          'percentage',
+          'gpa',
+          'gpaWithoutOptional',
+          'calculateGpa',
+          'calculatePercentage',
+          'maxGpa',
+          'letterGrade',
+          'finalStatus',
+          'compulsorySubjectCount',
+          'failedCompulsoryCount',
+          'position',
+          'showPosition',
+          'workflowStatus',
+          'isPublished',
+          'rejectionReason',
+          'publishedDateLabelBn',
+          'publishedDateLabelEn',
+          'isDemoRecord',
+          'enteredByUid',
+          'updatedAt'
+        ])
+        && data.academicYearId is string && data.academicYearId.size() >= 1 && data.academicYearId.size() <= 60 && data.academicYearId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.academicYearLabelBn is string && data.academicYearLabelBn.size() >= 1 && data.academicYearLabelBn.size() <= 120
+        && data.academicYearLabelEn is string && data.academicYearLabelEn.size() >= 1 && data.academicYearLabelEn.size() <= 120
+        && data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 100 && data.examId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.examNameBn is string && data.examNameBn.size() >= 1 && data.examNameBn.size() <= 200
+        && data.examNameEn is string && data.examNameEn.size() >= 1 && data.examNameEn.size() <= 200
+        && isValidSupportedClassCode(data.classCode)
+        && data.classNameBn is string && data.classNameBn.size() >= 1 && data.classNameBn.size() <= 80
+        && data.classNameEn is string && data.classNameEn.size() >= 1 && data.classNameEn.size() <= 80
+        && data.rollNumber is string && data.rollNumber.size() >= 1 && data.rollNumber.size() <= 6 && data.rollNumber.matches('^[1-9][0-9]{0,5}$')
+        && data.studentId is string && data.studentId.size() >= 1 && data.studentId.size() <= 128 && data.studentId.matches('^[a-zA-Z0-9_\\-]+$')
+        && isOptionalString(data, 'studentCode', 60)
+        && data.studentNameEn is string && data.studentNameEn.size() >= 1 && data.studentNameEn.size() <= 160
+        && isOptionalString(data, 'studentNameBn', 160)
+        && isOptionalString(data, 'section', 40)
+        && isOptionalString(data, 'groupNameEn', 60)
+        && isOptionalString(data, 'groupNameBn', 60)
+        && data.gradingRuleId is string && data.gradingRuleId.size() >= 1 && data.gradingRuleId.size() <= 80 && data.gradingRuleId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.totalFullMarks is number && data.totalFullMarks > 0 && data.totalFullMarks <= 3000
+        && data.obtainedTotalMarks is number && data.obtainedTotalMarks >= 0 && data.obtainedTotalMarks <= data.totalFullMarks
+        && isOptionalNullableNumber(data, 'percentage', 0, 100)
+        && isOptionalNullableNumber(data, 'gpa', 0, 10)
+        && isOptionalNullableNumber(data, 'gpaWithoutOptional', 0, 10)
+        && data.calculateGpa is bool
+        && data.calculatePercentage is bool
+        && data.maxGpa is number && data.maxGpa >= 1 && data.maxGpa <= 10
+        && data.letterGrade is string && data.letterGrade.size() >= 1 && data.letterGrade.size() <= 10
+        && data.finalStatus is string && data.finalStatus in ['PASS', 'FAIL']
+        && data.compulsorySubjectCount is number && data.compulsorySubjectCount >= 1 && data.compulsorySubjectCount <= 25
+        && data.failedCompulsoryCount is number && data.failedCompulsoryCount >= 0 && data.failedCompulsoryCount <= 25
+        && isOptionalNullableNumber(data, 'position', 1, 10000)
+        && data.showPosition is bool
+        && data.workflowStatus is string && data.workflowStatus in ['draft', 'submitted', 'approved', 'rejected', 'published', 'unpublished']
+        && data.isPublished is bool
+        && ((data.isPublished == true && data.workflowStatus == 'published') || (data.isPublished == false && data.workflowStatus != 'published'))
+        && isOptionalNullableString(data, 'rejectionReason', 400)
+        && isOptionalString(data, 'publishedDateLabelBn', 60)
+        && isOptionalString(data, 'publishedDateLabelEn', 60)
+        && data.isDemoRecord is bool
+        && data.enteredByUid is string && data.enteredByUid.size() >= 1 && data.enteredByUid.size() <= 128
+        && data.updatedAt == request.time;
+    }
+
+    function isValidResultSubject(data) {
+      return data.keys().hasAll(['resultId', 'academicYearId', 'examId', 'classCode', 'rollNumber', 'subjectId', 'subjectCode', 'subjectNameBn', 'subjectNameEn', 'fullMarks', 'passMarks', 'isOptional', 'hasComponents', 'hasPractical', 'obtainedMarks', 'isAbsent', 'letterGrade', 'gradePoint', 'isPassed', 'displayOrder', 'isPublished', 'updatedAt'])
+        && data.keys().hasOnly(['resultId', 'academicYearId', 'examId', 'classCode', 'rollNumber', 'subjectId', 'subjectCode', 'subjectNameBn', 'subjectNameEn', 'fullMarks', 'passMarks', 'isOptional', 'hasComponents', 'hasPractical', 'writtenFullMarks', 'mcqFullMarks', 'practicalFullMarks', 'writtenMarks', 'mcqMarks', 'practicalMarks', 'obtainedMarks', 'isAbsent', 'letterGrade', 'gradePoint', 'isPassed', 'displayOrder', 'isPublished', 'updatedAt'])
+        && data.resultId is string && data.resultId.size() >= 1 && data.resultId.size() <= 128 && data.resultId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.academicYearId is string && data.academicYearId.size() >= 1 && data.academicYearId.size() <= 60 && data.academicYearId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.examId is string && data.examId.size() >= 1 && data.examId.size() <= 100 && data.examId.matches('^[a-zA-Z0-9_\\-]+$')
+        && isValidSupportedClassCode(data.classCode)
+        && data.rollNumber is string && data.rollNumber.size() >= 1 && data.rollNumber.size() <= 6 && data.rollNumber.matches('^[1-9][0-9]{0,5}$')
+        && data.subjectId is string && data.subjectId.size() >= 1 && data.subjectId.size() <= 100 && data.subjectId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.subjectCode is string && data.subjectCode.size() >= 1 && data.subjectCode.size() <= 30 && data.subjectCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.subjectNameBn is string && data.subjectNameBn.size() >= 1 && data.subjectNameBn.size() <= 160
+        && data.subjectNameEn is string && data.subjectNameEn.size() >= 1 && data.subjectNameEn.size() <= 160
+        && data.fullMarks is number && data.fullMarks > 0 && data.fullMarks <= 500
+        && data.passMarks is number && data.passMarks >= 0 && data.passMarks <= data.fullMarks
+        && data.isOptional is bool
+        && data.hasComponents is bool
+        && data.hasPractical is bool
+        && isOptionalNullableNumber(data, 'writtenFullMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'mcqFullMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'practicalFullMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'writtenMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'mcqMarks', 0, 500)
+        && isOptionalNullableNumber(data, 'practicalMarks', 0, 500)
+        && data.obtainedMarks is number && data.obtainedMarks >= 0 && data.obtainedMarks <= data.fullMarks
+        && data.isAbsent is bool
+        && data.letterGrade is string && data.letterGrade.size() >= 1 && data.letterGrade.size() <= 10
+        && data.gradePoint is number && data.gradePoint >= 0 && data.gradePoint <= 10
+        && data.isPassed is bool
+        && data.displayOrder is number
+        && data.isPublished is bool
+        && data.updatedAt == request.time;
+    }
+
+    // =========================================================================
+    // Phase 3 BPSC Cloud Document Center Validation Blueprint
+    // =========================================================================
+
+    function isValidCloudDocument(data) {
+      return data.keys().hasAll([
+          'title',
+          'category',
+          'className',
+          'subject',
+          'academicYear',
+          'description',
+          'driveUrl',
+          'fileType',
+          'fileSize',
+          'isPublished',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'title',
+          'titleBn',
+          'category',
+          'className',
+          'subject',
+          'academicYear',
+          'description',
+          'descriptionBn',
+          'driveUrl',
+          'fileType',
+          'fileSize',
+          'isPublished',
+          'isDemoRecord',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 250
+        && isOptionalString(data, 'titleBn', 250)
+        && data.category is string && data.category in [
+          'Class Routine',
+          'Exam Routine',
+          'Syllabus',
+          'Office Notice',
+          'Office Order',
+          'Forms',
+          'Academic Calendar',
+          'Holiday List',
+          'Question Papers',
+          'Model Questions',
+          'Study Materials',
+          'Other Documents'
+        ]
+        && (
+          data.className == null || (
+            data.className is string && data.className in [
+              'Nursery',
+              'Class 1',
+              'Class 2',
+              'Class 3',
+              'Class 4',
+              'Class 5',
+              'Class 6',
+              'Class 7',
+              'Class 8',
+              'Class 9',
+              'Class 10'
+            ]
+          )
+        )
+        && (data.subject == null || (data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120))
+        && (
+          data.academicYear == null || (
+            data.academicYear is string
+            && data.academicYear.size() >= 4
+            && data.academicYear.size() <= 20
+            && data.academicYear.matches('^[0-9]{4}(-[0-9]{2,4})?$')
+          )
+        )
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 2000
+        && isOptionalString(data, 'descriptionBn', 2000)
+        && data.driveUrl is string
+        && data.driveUrl.size() >= 24
+        && data.driveUrl.size() <= 600
+        && data.driveUrl.matches('^https://(drive|docs)\\.google\\.com/[a-zA-Z0-9_\\-./?=&%+]+$')
+        && data.fileType is string && data.fileType in [
+          'PDF',
+          'DOC',
+          'DOCX',
+          'XLS',
+          'XLSX',
+          'PPT',
+          'PPTX',
+          'JPG',
+          'PNG',
+          'ZIP',
+          'OTHER'
+        ]
+        && (data.fileSize == null || (data.fileSize is string && data.fileSize.size() >= 1 && data.fileSize.size() <= 40))
+        && data.isPublished is bool
+        && (!('isDemoRecord' in data) || data.isDemoRecord is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    // =========================================================================
+    // Phase 1 & Phase 4 Institutional Collection Match Rules
+    // =========================================================================
+
+    match /siteContent/{contentId} {
+      allow get: if isValidId(contentId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(contentId) && isValidSiteContent(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(contentId) && isValidSiteContent(incoming()) && incoming().sectionKey == existing().sectionKey && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(contentId) && canManageWebsiteContent();
+    }
+
+    match /banners/{bannerId} {
+      allow get: if isValidId(bannerId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(bannerId) && isValidBanner(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(bannerId) && isValidBanner(incoming()) && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(bannerId) && canManageWebsiteContent();
+    }
+
+    match /administration/{memberId} {
+      allow get: if isValidId(memberId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(memberId) && isValidAdminMember(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(memberId) && isValidAdminMember(incoming()) && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(memberId) && canManageWebsiteContent();
+    }
+
+    match /governingBody/{memberId} {
+      allow get: if isValidId(memberId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(memberId) && isValidGoverningBodyMember(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(memberId) && isValidGoverningBodyMember(incoming()) && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(memberId) && canManageWebsiteContent();
+    }
+
+    match /teachers/{teacherId} {
+      allow get: if isValidId(teacherId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(teacherId) && isValidTeacher(incoming()) && canManageTeachersAndAccess();
+      allow update: if isSignedIn() && isValidId(teacherId) && isValidTeacher(incoming()) && canManageTeachersAndAccess();
+      allow delete: if isSignedIn() && isValidId(teacherId) && canManageTeachersAndAccess();
+    }
+
+    match /staff/{staffId} {
+      allow get: if isValidId(staffId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(staffId) && isValidStaffMember(incoming()) && canManageTeachersAndAccess();
+      allow update: if isSignedIn() && isValidId(staffId) && isValidStaffMember(incoming()) && canManageTeachersAndAccess();
+      allow delete: if isSignedIn() && isValidId(staffId) && canManageTeachersAndAccess();
+    }
+
+    match /classes/{classId} {
+      allow get: if isValidId(classId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(classId) && isValidAcademicClass(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(classId) && isValidAcademicClass(incoming()) && incoming().classCode == existing().classCode && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(classId) && canManageWebsiteContent();
+    }
+
+    match /academicResources/{resourceId} {
+      allow get: if isValidId(resourceId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(resourceId) && isValidAcademicResource(incoming()) && canManageCloud();
+      allow update: if isSignedIn() && isValidId(resourceId) && isValidAcademicResource(incoming()) && canManageCloud();
+      allow delete: if isSignedIn() && isValidId(resourceId) && canManageCloud();
+    }
+
+    match /notices/{noticeId} {
+      allow get: if isValidId(noticeId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(noticeId) && isValidNotice(incoming()) && canManageNoticesAndHolidays();
+      allow update: if isSignedIn() && isValidId(noticeId) && isValidNotice(incoming()) && canManageNoticesAndHolidays();
+      allow delete: if isSignedIn() && isValidId(noticeId) && canManageNoticesAndHolidays();
+    }
+
+    match /gallery/{itemId} {
+      allow get: if isValidId(itemId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(itemId) && isValidGalleryItem(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(itemId) && isValidGalleryItem(incoming()) && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(itemId) && canManageWebsiteContent();
+    }
+
+    match /news/{newsId} {
+      allow get: if isValidId(newsId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(newsId) && isValidNewsItem(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(newsId) && isValidNewsItem(incoming()) && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(newsId) && canManageWebsiteContent();
+    }
+
+    match /events/{eventId} {
+      allow get: if isValidId(eventId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(eventId) && isValidEventItem(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(eventId) && isValidEventItem(incoming()) && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(eventId) && canManageWebsiteContent();
+    }
+
+    match /facilities/{facilityId} {
+      allow get: if isValidId(facilityId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(facilityId) && isValidFacility(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(facilityId) && isValidFacility(incoming()) && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(facilityId) && canManageWebsiteContent();
+    }
+
+    match /transport/{transportId} {
+      allow get: if isValidId(transportId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(transportId) && isValidTransportInfo(incoming()) && canManageWebsiteContent();
+      allow update: if isSignedIn() && isValidId(transportId) && isValidTransportInfo(incoming()) && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(transportId) && canManageWebsiteContent();
+    }
+
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(settingId) && isValidSiteSetting(incoming()) && canManageSettings();
+      allow update: if isSignedIn() && isValidId(settingId) && isValidSiteSetting(incoming()) && canManageSettings();
+      allow delete: if isSignedIn() && isValidId(settingId) && canManageSettings();
+    }
+
+    match /contactMessages/{messageId} {
+      allow get: if isSignedIn() && isValidId(messageId) && canManageWebsiteContent();
+      allow list: if canManageWebsiteContent();
+      allow create: if isValidId(messageId)
+        && isValidContactMessage(incoming())
+        && incoming().status == 'new'
+        && incoming().createdAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(messageId)
+        && isValidContactMessage(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && canManageWebsiteContent();
+      allow delete: if isSignedIn() && isValidId(messageId) && canManageWebsiteContent();
+    }
+
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (request.auth.uid == adminId || isSuperAdmin());
+      allow list: if isSuperAdmin();
+      allow create: if isSuperAdmin() && isValidId(adminId) && isValidLegacyAdminUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isSuperAdmin()
+        && isValidId(adminId)
+        && isValidLegacyAdminUser(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().email == existing().email
+        && incoming().diff(existing()).affectedKeys().hasOnly(['role']);
+      allow delete: if isSuperAdmin() && isValidId(adminId);
+    }
+
+    // =========================================================================
+    // Phase 4 Master Admin Panel RBAC, Holidays, Teacher Requests & Audit Rules
+    // =========================================================================
+
+    match /adminUsers/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(uid)
+        && isValidAdminUserRecord(incoming())
+        && incoming().uid == uid
+        && incoming().createdAt == request.time
+        && isSuperAdmin();
+      allow update: if isSignedIn()
+        && isValidId(uid)
+        && isValidAdminUserRecord(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && isSuperAdmin();
+      allow delete: if isSignedIn() && isValidId(uid) && isSuperAdmin();
+    }
+
+    match /schoolSettings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(settingId)
+        && isValidSchoolOperationalSetting(incoming())
+        && canManageSettings();
+      allow update: if isSignedIn()
+        && isValidId(settingId)
+        && isValidSchoolOperationalSetting(incoming())
+        && canManageSettings();
+      allow delete: if isSignedIn() && isValidId(settingId) && canManageSettings();
+    }
+
+    match /holidays/{holidayId} {
+      allow get: if isValidId(holidayId) && (existing().isPublished == true || isAdmin());
+      allow list: if existing().isPublished == true || isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(holidayId)
+        && isValidHoliday(incoming())
+        && incoming().createdAt == request.time
+        && canManageNoticesAndHolidays();
+      allow update: if isSignedIn()
+        && isValidId(holidayId)
+        && isValidHoliday(incoming())
+        && incoming().createdAt == existing().createdAt
+        && canManageNoticesAndHolidays();
+      allow delete: if isSignedIn() && isValidId(holidayId) && canManageNoticesAndHolidays();
+    }
+
+    match /teacherAccessRequests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId) && (
+        canManageTeachersAndAccess()
+        || existing().applicantUid == request.auth.uid
+      );
+      allow list: if canManageTeachersAndAccess() || (isSignedIn() && existing().applicantUid == request.auth.uid);
+      allow create: if isSignedIn()
+        && isValidId(requestId)
+        && isValidTeacherAccessRequest(incoming())
+        && incoming().createdAt == request.time
+        && (
+          canManageTeachersAndAccess()
+          || (incoming().applicantUid == request.auth.uid && incoming().status == 'pending')
+        );
+      allow update: if isSignedIn()
+        && isValidId(requestId)
+        && isValidTeacherAccessRequest(incoming())
+        && incoming().createdAt == existing().createdAt
+        && canManageTeachersAndAccess();
+      allow delete: if isSignedIn() && isValidId(requestId) && canManageTeachersAndAccess();
+    }
+
+    match /activityLogs/{logId} {
+      allow get: if isSignedIn() && isValidId(logId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(logId)
+        && isValidActivityLog(incoming())
+        && isAdmin();
+      allow update, delete: if false;
+    }
+
+    // =========================================================================
+    // Phase 2 Result Portal & Result Management Match Rules
+    // =========================================================================
+
+    match /authorizedTeachers/{teacherUid} {
+      allow get: if isSignedIn() && isValidId(teacherUid) && (request.auth.uid == teacherUid || isAdmin() || isAuthorizedTeacher());
+      allow list: if canManageTeachersAndAccess() || isAuthorizedTeacher();
+      allow create: if isSignedIn()
+        && isValidId(teacherUid)
+        && isValidAuthorizedTeacher(incoming())
+        && incoming().createdAt == request.time
+        && canManageTeachersAndAccess();
+      allow update: if isSignedIn()
+        && isValidId(teacherUid)
+        && isValidAuthorizedTeacher(incoming())
+        && incoming().createdAt == existing().createdAt
+        && (
+          canManageTeachersAndAccess()
+          || (
+            request.auth.uid == teacherUid
+            && existing().isActive == true
+            && incoming().isActive == existing().isActive
+            && incoming().email == existing().email
+            && incoming().teacherId == existing().teacherId
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'phone',
+              'photoUrl',
+              'bio',
+              'officeHours',
+              'qualification',
+              'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isSignedIn() && isValidId(teacherUid) && canManageTeachersAndAccess();
+    }
+
+    match /academicYears/{yearId} {
+      allow get: if isValidId(yearId) && (existing().isActive == true || isAdmin());
+      allow list: if existing().isActive == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(yearId) && isValidAcademicYear(incoming()) && canManageResults();
+      allow update: if isSignedIn()
+        && isValidId(yearId)
+        && isValidAcademicYear(incoming())
+        && incoming().yearCode == existing().yearCode
+        && canManageResults();
+      allow delete: if isSignedIn() && isValidId(yearId) && canManageResults();
+    }
+
+    match /examinations/{examId} {
+      allow get: if isValidId(examId) && (existing().isActive == true || isAdmin());
+      allow list: if existing().isActive == true || isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(examId)
+        && isValidExamination(incoming())
+        && incoming().createdAt == request.time
+        && (canManageResults() && (isBootstrappedAdmin() || exists(/databases/$(database)/documents/academicYears/$(incoming().academicYearId))));
+      allow update: if isSignedIn()
+        && isValidId(examId)
+        && isValidExamination(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().academicYearId == existing().academicYearId
+        && canManageResults();
+      allow delete: if isSignedIn() && isValidId(examId) && canManageResults();
+    }
+
+    // Student Enrollment Records (Admins manage all; authorized teachers can view students of their assigned classes)
+    match /students/{studentId} {
+      allow get: if isSignedIn() && isValidId(studentId) && (
+        canManageStudents()
+        || (
+          isAuthorizedTeacher()
+          && exists(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid))
+          && (get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.canViewStudents != false)
+          && (resource.data.classCode in get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.assignedClasses)
+        )
+      );
+      allow list: if canManageStudents()
+        || (
+          isAuthorizedTeacher()
+          && exists(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid))
+          && (get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.canViewStudents != false)
+        );
+      allow create: if isSignedIn()
+        && isValidId(studentId)
+        && isValidStudent(incoming())
+        && canManageStudents();
+      allow update: if isSignedIn()
+        && isValidId(studentId)
+        && isValidStudent(incoming())
+        && incoming().academicYearId == existing().academicYearId
+        && incoming().rollNumber == existing().rollNumber
+        && canManageStudents();
+      allow delete: if isSignedIn() && isValidId(studentId) && canManageStudents();
+    }
+
+    match /subjects/{subjectId} {
+      allow get: if isValidId(subjectId) && (existing().isActive == true || isAdmin() || isAuthorizedTeacher());
+      allow list: if existing().isActive == true || isAdmin() || isAuthorizedTeacher();
+      allow create: if isSignedIn() && isValidId(subjectId) && isValidSubjectConfig(incoming()) && canManageResults();
+      allow update: if isSignedIn()
+        && isValidId(subjectId)
+        && isValidSubjectConfig(incoming())
+        && incoming().subjectCode == existing().subjectCode
+        && incoming().classCode == existing().classCode
+        && canManageResults();
+      allow delete: if isSignedIn() && isValidId(subjectId) && canManageResults();
+    }
+
+    match /gradingRules/{ruleId} {
+      allow get: if isValidId(ruleId) && (existing().isActive == true || isAdmin() || isAuthorizedTeacher());
+      allow list: if existing().isActive == true || isAdmin() || isAuthorizedTeacher();
+      allow create: if isSignedIn() && isValidId(ruleId) && isValidGradingRule(incoming()) && canManageResults();
+      allow update: if isSignedIn()
+        && isValidId(ruleId)
+        && isValidGradingRule(incoming())
+        && incoming().ruleCode == existing().ruleCode
+        && canManageResults();
+      allow delete: if isSignedIn() && isValidId(ruleId) && canManageResults();
+    }
+
+    // Class-Exam Publication Status Gate (Contains zero student PII/marks; Teachers can ONLY submit drafts, NEVER publish)
+    match /resultPublication/{publicationId} {
+      allow get: if isValidId(publicationId) && (resource == null || existing().isActive == true || isAdmin() || isAuthorizedTeacher());
+      allow list: if existing().isActive == true || canManageResults() || isAuthorizedTeacher();
+      allow create: if isSignedIn()
+        && isValidId(publicationId)
+        && isValidResultPublication(incoming())
+        && (
+          canManageResults() || (
+            isAuthorizedTeacher()
+            && exists(/databases/$(database)/documents/academicYears/$(incoming().academicYearId))
+            && exists(/databases/$(database)/documents/examinations/$(incoming().examId))
+            && incoming().isPublished == false
+            && incoming().workflowStatus in ['draft', 'submitted']
+          )
+        );
+      allow update: if isSignedIn()
+        && isValidId(publicationId)
+        && isValidResultPublication(incoming())
+        && incoming().academicYearId == existing().academicYearId
+        && incoming().examId == existing().examId
+        && incoming().classCode == existing().classCode
+        && (
+          (
+            existing().isPublished == false
+            && existing().workflowStatus in ['draft', 'rejected', 'submitted']
+            && incoming().isPublished == false
+            && incoming().workflowStatus == 'submitted'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['workflowStatus', 'isPublished', 'updatedAt'])
+            && isAuthorizedTeacher()
+          )
+          || canManageResults()
+        );
+      allow delete: if isSignedIn() && isValidId(publicationId) && canManageResults();
+    }
+
+    // Student Examination Results (Public read strictly locked to workflowStatus == 'published' && isPublished == true)
+    match /results/{resultId} {
+      allow get: if isValidId(resultId) && (
+        (existing().isPublished == true && existing().workflowStatus == 'published')
+        || canManageResults()
+        || (isAuthorizedTeacher() && existing().enteredByUid == request.auth.uid)
+      );
+      allow list: if (existing().isPublished == true && existing().workflowStatus == 'published')
+        || (isSignedIn() && existing().enteredByUid == request.auth.uid)
+        || canManageResults();
+      allow create: if isSignedIn()
+        && isValidId(resultId)
+        && isValidStudentResult(incoming())
+        && incoming().enteredByUid == request.auth.uid
+        && (
+          canManageResults() || (
+            isAuthorizedTeacher()
+            && exists(/databases/$(database)/documents/academicYears/$(incoming().academicYearId))
+            && exists(/databases/$(database)/documents/examinations/$(incoming().examId))
+            && incoming().isPublished == false
+            && incoming().workflowStatus == 'draft'
+          )
+        );
+      allow update: if isSignedIn()
+        && isValidId(resultId)
+        && isValidStudentResult(incoming())
+        && incoming().academicYearId == existing().academicYearId
+        && incoming().examId == existing().examId
+        && incoming().classCode == existing().classCode
+        && incoming().rollNumber == existing().rollNumber
+        && incoming().studentId == existing().studentId
+        && (
+          (
+            existing().isPublished == false
+            && existing().workflowStatus in ['draft', 'rejected']
+            && incoming().enteredByUid == existing().enteredByUid
+            && existing().enteredByUid == request.auth.uid
+            && incoming().isPublished == false
+            && incoming().workflowStatus in ['draft', 'submitted']
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'studentNameEn',
+              'studentNameBn',
+              'section',
+              'groupNameEn',
+              'groupNameBn',
+              'gradingRuleId',
+              'totalFullMarks',
+              'obtainedTotalMarks',
+              'percentage',
+              'gpa',
+              'gpaWithoutOptional',
+              'calculateGpa',
+              'calculatePercentage',
+              'maxGpa',
+              'letterGrade',
+              'finalStatus',
+              'compulsorySubjectCount',
+              'failedCompulsoryCount',
+              'position',
+              'showPosition',
+              'workflowStatus',
+              'isPublished',
+              'updatedAt'
+            ])
+            && isAuthorizedTeacher()
+          )
+          || canManageResults()
+        );
+      allow delete: if isSignedIn() && isValidId(resultId) && canManageResults();
+    }
+
+    // Subject-Wise Marksheet Rows (Public read strictly locked to isPublished == true)
+    match /resultSubjects/{resultSubjectId} {
+      allow get: if isValidId(resultSubjectId) && (
+        existing().isPublished == true
+        || canManageResults()
+        || (
+          isAuthorizedTeacher()
+          && get(/databases/$(database)/documents/results/$(existing().resultId)).data.enteredByUid == request.auth.uid
+        )
+      );
+      allow list: if existing().isPublished == true || canManageResults();
+      allow create: if isSignedIn()
+        && isValidId(resultSubjectId)
+        && isValidResultSubject(incoming())
+        && existsAfter(/databases/$(database)/documents/results/$(incoming().resultId))
+        && (
+          canManageResults() || (
+            isAuthorizedTeacher()
+            && incoming().isPublished == false
+            && getAfter(/databases/$(database)/documents/results/$(incoming().resultId)).data.isPublished == false
+            && getAfter(/databases/$(database)/documents/results/$(incoming().resultId)).data.enteredByUid == request.auth.uid
+          )
+        );
+      allow update: if isSignedIn()
+        && isValidId(resultSubjectId)
+        && isValidResultSubject(incoming())
+        && incoming().resultId == existing().resultId
+        && incoming().academicYearId == existing().academicYearId
+        && incoming().examId == existing().examId
+        && incoming().classCode == existing().classCode
+        && incoming().rollNumber == existing().rollNumber
+        && incoming().subjectCode == existing().subjectCode
+        && (
+          (
+            existing().isPublished == false
+            && incoming().isPublished == false
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'fullMarks',
+              'passMarks',
+              'writtenFullMarks',
+              'mcqFullMarks',
+              'practicalFullMarks',
+              'writtenMarks',
+              'mcqMarks',
+              'practicalMarks',
+              'obtainedMarks',
+              'isAbsent',
+              'letterGrade',
+              'gradePoint',
+              'isPassed',
+              'displayOrder',
+              'updatedAt'
+            ])
+            && isAuthorizedTeacher()
+            && get(/databases/$(database)/documents/results/$(existing().resultId)).data.isPublished == false
+            && get(/databases/$(database)/documents/results/$(existing().resultId)).data.workflowStatus in ['draft', 'rejected']
+            && get(/databases/$(database)/documents/results/$(existing().resultId)).data.enteredByUid == request.auth.uid
+          )
+          || canManageResults()
+        );
+      allow delete: if isSignedIn() && isValidId(resultSubjectId) && canManageResults();
+    }
+
+    // =========================================================================
+    // Phase 3 BPSC Cloud Document Center Match Rules
+    // =========================================================================
+    match /cloudDocuments/{documentId} {
+      allow get: if isValidId(documentId) && (existing().isPublished == true || canManageCloud() || isAdmin());
+      allow list: if existing().isPublished == true || canManageCloud() || isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(documentId)
+        && isValidCloudDocument(incoming())
+        && incoming().createdAt == request.time
+        && canManageCloud();
+      allow update: if isSignedIn()
+        && isValidId(documentId)
+        && isValidCloudDocument(incoming())
+        && incoming().createdAt == existing().createdAt
+        && canManageCloud();
+      allow delete: if isSignedIn() && isValidId(documentId) && canManageCloud();
+    }
+
+    // =========================================================================
+    // Phase 5 Teacher Panel Collections: Mark Submissions & Attendance Records
+    // =========================================================================
+    match /teacherMarkSubmissions/{submissionId} {
+      allow get: if isSignedIn() && isValidId(submissionId) && (
+        canManageResults()
+        || existing().teacherUid == request.auth.uid
+        || (
+          isAuthorizedTeacher()
+          && exists(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid))
+          && get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.classTeacherOf == existing().classCode
+        )
+      );
+      allow list: if canManageResults() || (isSignedIn() && isAuthorizedTeacher());
+      allow create: if isSignedIn()
+        && isValidId(submissionId)
+        && isValidTeacherMarkSubmission(incoming())
+        && incoming().teacherUid == request.auth.uid
+        && (
+          canManageResults()
+          || (
+            isAuthorizedTeacher()
+            && exists(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid))
+            && (incoming().classCode in get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.assignedClasses)
+          )
+        );
+      allow update: if isSignedIn()
+        && isValidId(submissionId)
+        && isValidTeacherMarkSubmission(incoming())
+        && incoming().createdAt == existing().createdAt
+        && (
+          canManageResults()
+          || (
+            isAuthorizedTeacher()
+            && existing().teacherUid == request.auth.uid
+            && existing().status in ['draft', 'rejected']
+            && incoming().status in ['draft', 'submitted']
+          )
+        );
+      allow delete: if isSignedIn()
+        && isValidId(submissionId)
+        && (
+          canManageResults()
+          || (
+            isAuthorizedTeacher()
+            && existing().teacherUid == request.auth.uid
+            && existing().status == 'draft'
+          )
+        );
+    }
+
+    match /attendanceRecords/{attendanceId} {
+      allow get: if isSignedIn() && isValidId(attendanceId) && (
+        isAdmin()
+        || (
+          isAuthorizedTeacher()
+          && exists(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid))
+          && (existing().classCode in get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.assignedClasses)
+        )
+      );
+      allow list: if isAdmin() || (isSignedIn() && isAuthorizedTeacher());
+      allow create: if isSignedIn()
+        && isValidId(attendanceId)
+        && isValidAttendanceRecord(incoming())
+        && incoming().teacherUid == request.auth.uid
+        && (
+          isAdmin()
+          || (
+            isAuthorizedTeacher()
+            && exists(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid))
+            && get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.canTakeAttendance != false
+            && (incoming().classCode in get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.assignedClasses)
+          )
+        );
+      allow update: if isSignedIn()
+        && isValidId(attendanceId)
+        && isValidAttendanceRecord(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().classCode == existing().classCode
+        && incoming().date == existing().date
+        && (
+          isAdmin()
+          || (
+            isAuthorizedTeacher()
+            && existing().teacherUid == request.auth.uid
+            && exists(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid))
+            && get(/databases/$(database)/documents/authorizedTeachers/$(request.auth.uid)).data.canTakeAttendance != false
+          )
+        );
+      allow delete: if isSignedIn()
+        && isValidId(attendanceId)
+        && (
+          isAdmin()
+          || (
+            isAuthorizedTeacher()
+            && existing().teacherUid == request.auth.uid
+          )
+        );
+    }
+  }
+}

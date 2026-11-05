@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #102B50;
+  --secondary: #1F5FAF;
+  --accent: #17A9C6;
+  --background: #F6F8FC;
+  --surface: #FFFFFF;
+  --text-primary: #17263C;
+  --text-secondary: #617187;
+}
+
+@theme {
+  --font-sans: 'Hind Siliguri', 'Inter', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
+  --color-primary: #102B50;
+  --color-secondary: #1F5FAF;
+  --color-accent: #17A9C6;
+  --color-canvas: #F6F8FC;
+  --color-surface: #FFFFFF;
+  --color-ink: #17263C;
+  --color-muted: #617187;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    background-color: var(--background);
+    scroll-behavior: smooth;
+    max-width: 100%;
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+    text-rendering: optimizeLegibility;
+    line-height: 1.6;
+  }
+
+  #root {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+    overflow-wrap: break-word;
+  }
+
+  img {
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 10mm 12mm;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    background-color: #ffffff !important;
+    color: #17263C !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  #bpsciepz-printable-marksheet {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    break-inside: avoid;
+  }
+}
+

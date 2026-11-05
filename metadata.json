@@ -1,0 +1,6 @@
+{
+  "name": "BEPZA Public School and College, Ishwardi EPZ",
+  "description": "Official public website of BEPZA Public School and College (BPSC), Ishwardi EPZ, Paksey, Pabna, Bangladesh (EIIN: 140336).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

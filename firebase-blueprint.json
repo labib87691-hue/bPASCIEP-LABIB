@@ -1,0 +1,773 @@
+{
+  "entities": {
+    "SiteContent": {
+      "title": "SiteContent",
+      "description": "General institutional content sections such as About, History, Mission, Vision, and Admission info.",
+      "type": "object",
+      "properties": {
+        "sectionKey": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "bodyBn": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "bodyEn": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sectionKey", "titleBn", "titleEn", "bodyBn", "bodyEn", "isPublished", "updatedAt"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Homepage hero banner slides with authentic school photography.",
+      "type": "object",
+      "properties": {
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "subtitleBn": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "subtitleEn": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "imageUrl": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["titleBn", "titleEn", "imageUrl", "order", "isPublished", "createdAt"]
+    },
+    "AdminMember": {
+      "title": "AdminMember",
+      "description": "Executive Chairman, Executive Director, Principal, and administrative officials.",
+      "type": "object",
+      "properties": {
+        "roleKey": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "designationBn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "designationEn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "organizationBn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "organizationEn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "messageBn": { "type": "string", "minLength": 0, "maxLength": 8000 },
+        "messageEn": { "type": "string", "minLength": 0, "maxLength": 8000 },
+        "photoUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["roleKey", "name", "designationBn", "designationEn", "order", "isPublished"]
+    },
+    "GoverningBodyMember": {
+      "title": "GoverningBodyMember",
+      "description": "Verified Governing Body members of BPSC, Ishwardi EPZ.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "boardRoleBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "boardRoleEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "designationBn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "designationEn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "photoUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["name", "boardRoleBn", "boardRoleEn", "designationBn", "designationEn", "order", "isPublished"]
+    },
+    "Teacher": {
+      "title": "Teacher",
+      "description": "Public directory profile of BPSC faculty members.",
+      "type": "object",
+      "properties": {
+        "serial": { "type": "number" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "designationBn": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "designationEn": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "department": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "subjectBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "subjectEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "qualification": { "type": "string", "minLength": 0, "maxLength": 600 },
+        "photoUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "publicEmail": { "type": "string", "minLength": 0, "maxLength": 160 },
+        "publicPhone": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["serial", "name", "designationBn", "designationEn", "department", "subjectBn", "subjectEn", "isPublished"]
+    },
+    "StaffMember": {
+      "title": "StaffMember",
+      "description": "Public directory profile of BPSC administrative and support staff.",
+      "type": "object",
+      "properties": {
+        "serial": { "type": "number" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "designationBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "designationEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "photoUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "publicPhone": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "publicEmail": { "type": "string", "minLength": 0, "maxLength": 160 },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["serial", "name", "designationBn", "designationEn", "isPublished"]
+    },
+    "AcademicClass": {
+      "title": "AcademicClass",
+      "description": "Academic level information from Nursery to Class 10.",
+      "type": "object",
+      "properties": {
+        "levelOrder": { "type": "number" },
+        "classCode": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "nameBn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "nameEn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "sectionGroupBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "sectionGroupEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "descriptionBn": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "descriptionEn": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "routineUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "syllabusUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["levelOrder", "classCode", "nameBn", "nameEn", "sectionGroupBn", "sectionGroupEn", "descriptionBn", "descriptionEn", "isPublished"]
+    },
+    "AcademicResource": {
+      "title": "AcademicResource",
+      "description": "Class routines, exam routines, syllabi, course plans, and academic calendar items.",
+      "type": "object",
+      "properties": {
+        "resourceType": { "type": "string", "enum": ["class_routine", "exam_routine", "syllabus", "course_plan", "calendar"] },
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "classNameBn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "classNameEn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "publishDate": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "fileUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["resourceType", "titleBn", "titleEn", "classNameBn", "classNameEn", "publishDate", "order", "isPublished"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "Official school notices, office orders, exam notices, and admission circulars.",
+      "type": "object",
+      "properties": {
+        "serial": { "type": "number" },
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "category": { "type": "string", "enum": ["academic", "admission", "examination", "recruitment", "general"] },
+        "publishDate": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "summaryBn": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "summaryEn": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "attachmentUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "externalUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "isImportant": { "type": "boolean" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["serial", "titleBn", "titleEn", "category", "publishDate", "summaryBn", "summaryEn", "isImportant", "isPublished"]
+    },
+    "GalleryItem": {
+      "title": "GalleryItem",
+      "description": "Categorized institutional gallery photograph.",
+      "type": "object",
+      "properties": {
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "category": { "type": "string", "enum": ["campus", "events", "science_fair", "cultural", "guardians_meeting", "transport"] },
+        "imageUrl": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "dateLabel": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["titleBn", "titleEn", "category", "imageUrl", "order", "isPublished"]
+    },
+    "NewsItem": {
+      "title": "NewsItem",
+      "description": "Published institutional news and achievement updates.",
+      "type": "object",
+      "properties": {
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "publishDate": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "summaryBn": { "type": "string", "minLength": 1, "maxLength": 3000 },
+        "summaryEn": { "type": "string", "minLength": 1, "maxLength": 3000 },
+        "imageUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["titleBn", "titleEn", "publishDate", "summaryBn", "summaryEn", "category", "isPublished"]
+    },
+    "EventItem": {
+      "title": "EventItem",
+      "description": "School events, science fairs, cultural celebrations, and guardian assemblies.",
+      "type": "object",
+      "properties": {
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "eventDate": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "descriptionBn": { "type": "string", "minLength": 1, "maxLength": 2500 },
+        "descriptionEn": { "type": "string", "minLength": 1, "maxLength": 2500 },
+        "imageUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["titleBn", "titleEn", "eventDate", "descriptionBn", "descriptionEn", "isPublished"]
+    },
+    "Facility": {
+      "title": "Facility",
+      "description": "Verified campus infrastructure and student facilities.",
+      "type": "object",
+      "properties": {
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "descriptionBn": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "descriptionEn": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "imageUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["titleBn", "titleEn", "descriptionBn", "descriptionEn", "order", "isPublished"]
+    },
+    "TransportInfo": {
+      "title": "TransportInfo",
+      "description": "Verified school transport vehicles, driver info, and service details.",
+      "type": "object",
+      "properties": {
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "descriptionBn": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "descriptionEn": { "type": "string", "minLength": 1, "maxLength": 1500 },
+        "imageUrl": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "order": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["titleBn", "titleEn", "descriptionBn", "descriptionEn", "order", "isPublished"]
+    },
+    "SiteSetting": {
+      "title": "SiteSetting",
+      "description": "Public institutional settings, EIIN, established year, verified statistics, and contact info.",
+      "type": "object",
+      "properties": {
+        "schoolNameBn": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "schoolNameEn": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "eiin": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "establishedYear": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "addressBn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "addressEn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "phonePrimary": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "phoneSecondary": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "emailPrimary": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "emailSecondary": { "type": "string", "minLength": 0, "maxLength": 160 },
+        "totalStudents": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "totalTeachers": { "type": "number" },
+        "totalClasses": { "type": "number" },
+        "isPublished": { "type": "boolean" }
+      },
+      "required": ["schoolNameBn", "schoolNameEn", "eiin", "establishedYear", "addressBn", "addressEn", "phonePrimary", "emailPrimary", "totalTeachers", "totalClasses", "isPublished"]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "Submitted public contact inquiry containing visitor PII (admin-readable only).",
+      "type": "object",
+      "properties": {
+        "senderName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "senderEmail": { "type": "string", "minLength": 5, "maxLength": 160, "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" },
+        "senderPhone": { "type": "string", "minLength": 6, "maxLength": 30, "pattern": "^[0-9+\\-\\s()]{6,30}$" },
+        "subject": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "message": { "type": "string", "minLength": 10, "maxLength": 3000 },
+        "status": { "type": "string", "enum": ["new", "read", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderName", "senderEmail", "senderPhone", "subject", "message", "status", "createdAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Trusted administrator registry document keyed by user UID.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "minLength": 5, "maxLength": 160 },
+        "role": { "type": "string", "enum": ["master_admin", "editor"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "AuthorizedTeacher": {
+      "title": "AuthorizedTeacher",
+      "description": "Trusted faculty registry document keyed by teacher UID with Phase 5 permissions and profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "minLength": 5, "maxLength": 160 },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "teacherRole": { "type": "string", "enum": ["subject_teacher", "class_teacher"] },
+        "assignedClasses": { "type": "array" },
+        "assignedSections": { "type": "array" },
+        "assignedSubjects": { "type": "array" },
+        "isClassTeacher": { "type": "boolean" },
+        "classTeacherOf": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "canEnterMarks": { "type": "boolean" },
+        "canSubmitResults": { "type": "boolean" },
+        "canTakeAttendance": { "type": "boolean" },
+        "canViewStudents": { "type": "boolean" },
+        "canAccessCloud": { "type": "boolean" },
+        "canViewNotices": { "type": "boolean" },
+        "canEditProfile": { "type": "boolean" },
+        "canEditDraftMarks": { "type": "boolean" },
+        "phone": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "designation": { "type": "string", "minLength": 0, "maxLength": 120 },
+        "department": { "type": "string", "minLength": 0, "maxLength": 120 },
+        "qualification": { "type": "string", "minLength": 0, "maxLength": 600 },
+        "photoUrl": { "type": "string", "minLength": 0, "maxLength": 600 },
+        "bio": { "type": "string", "minLength": 0, "maxLength": 2000 },
+        "officeHours": { "type": "string", "minLength": 0, "maxLength": 200 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "teacherId", "isActive", "createdAt"]
+    },
+    "AcademicYear": {
+      "title": "AcademicYear",
+      "description": "Academic year catalog used by the Result Portal and Result Management system.",
+      "type": "object",
+      "properties": {
+        "yearCode": { "type": "string", "minLength": 4, "maxLength": 20, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "labelBn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "labelEn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "isCurrent": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["yearCode", "labelBn", "labelEn", "isCurrent", "isActive", "order", "updatedAt"]
+    },
+    "Examination": {
+      "title": "Examination",
+      "description": "Institutional examination definition linked to an AcademicYear and applicable classes.",
+      "type": "object",
+      "properties": {
+        "examCode": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "academicYearId": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "nameBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "nameEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "termType": { "type": "string", "enum": ["mid_term_1", "half_yearly", "mid_term_2", "annual", "pre_test", "test", "model_test"] },
+        "applicableClasses": { "type": "array" },
+        "examSessionBn": { "type": "string", "minLength": 0, "maxLength": 80 },
+        "examSessionEn": { "type": "string", "minLength": 0, "maxLength": 80 },
+        "showPosition": { "type": "boolean" },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["examCode", "academicYearId", "nameBn", "nameEn", "termType", "applicableClasses", "showPosition", "isActive", "order", "createdAt", "updatedAt"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Private student enrollment record containing guardian PII (strictly restricted to authorized admins and teachers).",
+      "type": "object",
+      "properties": {
+        "studentCode": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "academicYearId": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "classCode": { "type": "string", "enum": ["nursery", "class-1", "class-2", "class-3", "class-4", "class-5", "class-6", "class-7", "class-8", "class-9", "class-10"] },
+        "rollNumber": { "type": "string", "minLength": 1, "maxLength": 6, "pattern": "^[1-9][0-9]{0,5}$" },
+        "fullNameEn": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "fullNameBn": { "type": "string", "minLength": 0, "maxLength": 160 },
+        "section": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "groupNameEn": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "groupNameBn": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "guardianName": { "type": "string", "minLength": 0, "maxLength": 160 },
+        "guardianPhone": { "type": "string", "minLength": 0, "maxLength": 30 },
+        "isActive": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["academicYearId", "classCode", "rollNumber", "fullNameEn", "isActive", "updatedAt"]
+    },
+    "SubjectConfig": {
+      "title": "SubjectConfig",
+      "description": "Class-specific subject configuration supporting full marks, pass marks, practicals, and optional 4th subjects.",
+      "type": "object",
+      "properties": {
+        "subjectCode": { "type": "string", "minLength": 1, "maxLength": 30, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "classCode": { "type": "string", "enum": ["nursery", "class-1", "class-2", "class-3", "class-4", "class-5", "class-6", "class-7", "class-8", "class-9", "class-10"] },
+        "nameBn": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "nameEn": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "fullMarks": { "type": "number" },
+        "passMarks": { "type": "number" },
+        "hasComponents": { "type": "boolean" },
+        "writtenFullMarks": { "type": "number" },
+        "writtenPassMarks": { "type": "number" },
+        "mcqFullMarks": { "type": "number" },
+        "mcqPassMarks": { "type": "number" },
+        "hasPractical": { "type": "boolean" },
+        "practicalFullMarks": { "type": "number" },
+        "practicalPassMarks": { "type": "number" },
+        "isOptional": { "type": "boolean" },
+        "displayOrder": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["subjectCode", "classCode", "nameBn", "nameEn", "fullMarks", "passMarks", "hasComponents", "hasPractical", "isOptional", "displayOrder", "isActive", "updatedAt"]
+    },
+    "GradingRule": {
+      "title": "GradingRule",
+      "description": "Configurable grading scale, pass threshold, optional subject bonus, and GPA formula definition.",
+      "type": "object",
+      "properties": {
+        "ruleCode": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "nameBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "nameEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "descriptionBn": { "type": "string", "minLength": 1, "maxLength": 800 },
+        "descriptionEn": { "type": "string", "minLength": 1, "maxLength": 800 },
+        "maxGpa": { "type": "number" },
+        "defaultPassPercentage": { "type": "number" },
+        "requireComponentPass": { "type": "boolean" },
+        "enableOptionalBonus": { "type": "boolean" },
+        "optionalBonusThreshold": { "type": "number" },
+        "calculateGpa": { "type": "boolean" },
+        "calculatePercentage": { "type": "boolean" },
+        "gradeScale": { "type": "array" },
+        "isActive": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ruleCode", "nameBn", "nameEn", "descriptionBn", "descriptionEn", "maxGpa", "defaultPassPercentage", "requireComponentPass", "enableOptionalBonus", "optionalBonusThreshold", "calculateGpa", "calculatePercentage", "gradeScale", "isActive", "updatedAt"]
+    },
+    "ResultPublication": {
+      "title": "ResultPublication",
+      "description": "Controls class-examination workflow and official publication visibility without exposing private student marks.",
+      "type": "object",
+      "properties": {
+        "academicYearId": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "examId": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "classCode": { "type": "string", "enum": ["nursery", "class-1", "class-2", "class-3", "class-4", "class-5", "class-6", "class-7", "class-8", "class-9", "class-10"] },
+        "workflowStatus": { "type": "string", "enum": ["draft", "submitted", "approved", "rejected", "published", "unpublished"] },
+        "isPublished": { "type": "boolean" },
+        "publishedDateLabelBn": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "publishedDateLabelEn": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "showPosition": { "type": "boolean" },
+        "totalCandidates": { "type": "number" },
+        "passCount": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["academicYearId", "examId", "classCode", "workflowStatus", "isPublished", "showPosition", "isActive", "updatedAt"]
+    },
+    "StudentResult": {
+      "title": "StudentResult",
+      "description": "Calculated student examination result summary; publicly readable ONLY when workflowStatus == published and isPublished == true.",
+      "type": "object",
+      "properties": {
+        "academicYearId": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "academicYearLabelBn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "academicYearLabelEn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "examId": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "examNameBn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "examNameEn": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "classCode": { "type": "string", "enum": ["nursery", "class-1", "class-2", "class-3", "class-4", "class-5", "class-6", "class-7", "class-8", "class-9", "class-10"] },
+        "classNameBn": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "classNameEn": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "rollNumber": { "type": "string", "minLength": 1, "maxLength": 6, "pattern": "^[1-9][0-9]{0,5}$" },
+        "studentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentCode": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "studentNameEn": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "studentNameBn": { "type": "string", "minLength": 0, "maxLength": 160 },
+        "section": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "groupNameEn": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "groupNameBn": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "gradingRuleId": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "totalFullMarks": { "type": "number" },
+        "obtainedTotalMarks": { "type": "number" },
+        "percentage": { "type": "number" },
+        "gpa": { "type": "number" },
+        "gpaWithoutOptional": { "type": "number" },
+        "calculateGpa": { "type": "boolean" },
+        "calculatePercentage": { "type": "boolean" },
+        "maxGpa": { "type": "number" },
+        "letterGrade": { "type": "string", "minLength": 1, "maxLength": 10 },
+        "finalStatus": { "type": "string", "enum": ["PASS", "FAIL"] },
+        "compulsorySubjectCount": { "type": "number" },
+        "failedCompulsoryCount": { "type": "number" },
+        "position": { "type": "number" },
+        "showPosition": { "type": "boolean" },
+        "workflowStatus": { "type": "string", "enum": ["draft", "submitted", "approved", "rejected", "published", "unpublished"] },
+        "isPublished": { "type": "boolean" },
+        "publishedDateLabelBn": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "publishedDateLabelEn": { "type": "string", "minLength": 0, "maxLength": 60 },
+        "isDemoRecord": { "type": "boolean" },
+        "enteredByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["academicYearId", "academicYearLabelBn", "academicYearLabelEn", "examId", "examNameBn", "examNameEn", "classCode", "classNameBn", "classNameEn", "rollNumber", "studentId", "studentNameEn", "gradingRuleId", "totalFullMarks", "obtainedTotalMarks", "calculateGpa", "calculatePercentage", "maxGpa", "letterGrade", "finalStatus", "compulsorySubjectCount", "failedCompulsoryCount", "showPosition", "workflowStatus", "isPublished", "isDemoRecord", "enteredByUid", "updatedAt"]
+    },
+    "ResultSubject": {
+      "title": "ResultSubject",
+      "description": "Subject-wise marksheet row linked to a StudentResult; publicly readable ONLY when isPublished == true.",
+      "type": "object",
+      "properties": {
+        "resultId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "academicYearId": { "type": "string", "minLength": 1, "maxLength": 60, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "examId": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "classCode": { "type": "string", "enum": ["nursery", "class-1", "class-2", "class-3", "class-4", "class-5", "class-6", "class-7", "class-8", "class-9", "class-10"] },
+        "rollNumber": { "type": "string", "minLength": 1, "maxLength": 6, "pattern": "^[1-9][0-9]{0,5}$" },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectCode": { "type": "string", "minLength": 1, "maxLength": 30, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectNameBn": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "subjectNameEn": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "fullMarks": { "type": "number" },
+        "passMarks": { "type": "number" },
+        "isOptional": { "type": "boolean" },
+        "hasComponents": { "type": "boolean" },
+        "hasPractical": { "type": "boolean" },
+        "writtenFullMarks": { "type": "number" },
+        "mcqFullMarks": { "type": "number" },
+        "practicalFullMarks": { "type": "number" },
+        "writtenMarks": { "type": "number" },
+        "mcqMarks": { "type": "number" },
+        "practicalMarks": { "type": "number" },
+        "obtainedMarks": { "type": "number" },
+        "isAbsent": { "type": "boolean" },
+        "letterGrade": { "type": "string", "minLength": 1, "maxLength": 10 },
+        "gradePoint": { "type": "number" },
+        "isPassed": { "type": "boolean" },
+        "displayOrder": { "type": "number" },
+        "isPublished": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["resultId", "academicYearId", "examId", "classCode", "rollNumber", "subjectId", "subjectCode", "subjectNameBn", "subjectNameEn", "fullMarks", "passMarks", "isOptional", "hasComponents", "hasPractical", "obtainedMarks", "isAbsent", "letterGrade", "gradePoint", "isPassed", "displayOrder", "isPublished", "updatedAt"]
+    },
+    "CloudDocument": {
+      "title": "CloudDocument",
+      "description": "Institutional and academic documents hosted externally on Google Drive for BPSC Cloud Document Center; publicly readable ONLY when isPublished == true.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 250 },
+        "titleBn": { "type": "string", "minLength": 0, "maxLength": 250 },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Class Routine",
+            "Exam Routine",
+            "Syllabus",
+            "Office Notice",
+            "Office Order",
+            "Forms",
+            "Academic Calendar",
+            "Holiday List",
+            "Question Papers",
+            "Model Questions",
+            "Study Materials",
+            "Other Documents"
+          ]
+        },
+        "className": {
+          "type": "string",
+          "enum": [
+            "Nursery",
+            "Class 1",
+            "Class 2",
+            "Class 3",
+            "Class 4",
+            "Class 5",
+            "Class 6",
+            "Class 7",
+            "Class 8",
+            "Class 9",
+            "Class 10"
+          ]
+        },
+        "subject": { "type": "string", "minLength": 0, "maxLength": 120 },
+        "academicYear": { "type": "string", "minLength": 0, "maxLength": 20, "pattern": "^[0-9]{4}(-[0-9]{2,4})?$" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "descriptionBn": { "type": "string", "minLength": 0, "maxLength": 2000 },
+        "driveUrl": {
+          "type": "string",
+          "minLength": 24,
+          "maxLength": 600,
+          "pattern": "^https://(drive|docs)\\.google\\.com/[a-zA-Z0-9_\\-./?=&%+]+$"
+        },
+        "fileType": {
+          "type": "string",
+          "enum": ["PDF", "DOC", "DOCX", "XLS", "XLSX", "PPT", "PPTX", "JPG", "PNG", "ZIP", "OTHER"]
+        },
+        "fileSize": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "isPublished": { "type": "boolean" },
+        "isDemoRecord": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "category", "className", "subject", "academicYear", "description", "driveUrl", "fileType", "fileSize", "isPublished", "createdAt", "updatedAt"]
+    },
+    "AdminUserRecord": {
+      "title": "AdminUserRecord",
+      "description": "Phase 4 Role-Based Access Control (RBAC) administrator profile keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "minLength": 5, "maxLength": 160 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["super_admin", "admin", "result_manager", "cloud_manager", "content_editor"] },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "isActive", "createdAt", "updatedAt"]
+    },
+    "Holiday": {
+      "title": "Holiday",
+      "description": "Institutional holiday and closure schedule supporting single-day and multi-day date ranges for BPSC Cloud.",
+      "type": "object",
+      "properties": {
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 220 },
+        "titleBn": { "type": "string", "minLength": 1, "maxLength": 220 },
+        "descriptionEn": { "type": "string", "minLength": 0, "maxLength": 1200 },
+        "descriptionBn": { "type": "string", "minLength": 0, "maxLength": 1200 },
+        "isMultiDay": { "type": "boolean" },
+        "startDate": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "endDate": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "holidayType": { "type": "string", "enum": ["national", "institutional", "exam_break", "vacation", "class_specific"] },
+        "applicableClass": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "academicYear": { "type": "string", "minLength": 4, "maxLength": 20 },
+        "driveUrl": { "type": "string", "minLength": 0, "maxLength": 600 },
+        "isPublished": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["titleEn", "titleBn", "isMultiDay", "startDate", "endDate", "holidayType", "applicableClass", "academicYear", "isPublished", "createdAt", "updatedAt"]
+    },
+    "TeacherAccessRequest": {
+      "title": "TeacherAccessRequest",
+      "description": "Phase 5 preparation teacher portal access request reviewed by Administrators.",
+      "type": "object",
+      "properties": {
+        "applicantUid": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "email": { "type": "string", "minLength": 5, "maxLength": 160 },
+        "phone": { "type": "string", "minLength": 0, "maxLength": 30 },
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "designation": { "type": "string", "minLength": 0, "maxLength": 120 },
+        "department": { "type": "string", "minLength": 0, "maxLength": 120 },
+        "requestedClasses": { "type": "array" },
+        "requestedSubjects": { "type": "array" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "rejectionReason": { "type": "string", "minLength": 0, "maxLength": 400 },
+        "reviewedByUid": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "email", "teacherId", "requestedClasses", "requestedSubjects", "status", "createdAt", "updatedAt"]
+    },
+    "SchoolOperationalSetting": {
+      "title": "SchoolOperationalSetting",
+      "description": "Operational portal toggles and academic year preferences managed in Master Admin Panel.",
+      "type": "object",
+      "properties": {
+        "currentAcademicYear": { "type": "string", "minLength": 4, "maxLength": 20 },
+        "admissionOpen": { "type": "boolean" },
+        "resultPortalEnabled": { "type": "boolean" },
+        "defaultShowPositionInResults": { "type": "boolean" },
+        "requireResultApprovalBeforePublish": { "type": "boolean" },
+        "cloudCenterEnabled": { "type": "boolean" },
+        "cloudItemsPerPage": { "type": "number" },
+        "maintenanceBannerTextEn": { "type": "string", "minLength": 0, "maxLength": 300 },
+        "maintenanceBannerTextBn": { "type": "string", "minLength": 0, "maxLength": 300 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["currentAcademicYear", "admissionOpen", "resultPortalEnabled", "defaultShowPositionInResults", "requireResultApprovalBeforePublish", "cloudCenterEnabled", "cloudItemsPerPage", "updatedAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Immutable append-only administrative audit log (credentials and tokens strictly excluded).",
+      "type": "object",
+      "properties": {
+        "actorUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "actorEmail": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "actorRole": { "type": "string", "enum": ["super_admin", "admin", "result_manager", "cloud_manager", "content_editor"] },
+        "actionType": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "targetCollection": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "metadata": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["actorUid", "actorEmail", "actorRole", "actionType", "targetCollection", "targetId", "summary", "createdAt"]
+    },
+    "TeacherMarkSubmission": {
+      "title": "TeacherMarkSubmission",
+      "description": "Phase 5 Teacher mark batch submission record submitted for administrative review.",
+      "type": "object",
+      "properties": {
+        "teacherUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "teacherName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "academicYearId": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "examId": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "examName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "classCode": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "className": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "subjectCode": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "subjectName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "totalCandidates": { "type": "number" },
+        "submittedMarksCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "submitted", "approved", "rejected"] },
+        "rejectionReason": { "type": "string", "minLength": 0, "maxLength": 400 },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "reviewedBy": { "type": "string", "minLength": 0, "maxLength": 128 },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacherUid", "teacherId", "teacherName", "academicYearId", "examId", "classCode", "subjectCode", "subjectName", "totalCandidates", "submittedMarksCount", "status", "createdAt", "updatedAt"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Phase 5 class daily attendance sheet marked by authorized teachers.",
+      "type": "object",
+      "properties": {
+        "academicYearId": { "type": "string", "minLength": 4, "maxLength": 20 },
+        "classCode": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "className": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "section": { "type": "string", "minLength": 0, "maxLength": 40 },
+        "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "teacherUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacherId": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "teacherName": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "studentAttendance": { "type": "object" },
+        "totalStudents": { "type": "number" },
+        "presentCount": { "type": "number" },
+        "absentCount": { "type": "number" },
+        "lateCount": { "type": "number" },
+        "remarks": { "type": "string", "minLength": 0, "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["academicYearId", "classCode", "date", "teacherUid", "teacherId", "teacherName", "studentAttendance", "totalStudents", "presentCount", "absentCount", "lateCount", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/siteContent/{contentId}": { "schema": "SiteContent", "description": "Published institutional content blocks." },
+    "/banners/{bannerId}": { "schema": "Banner", "description": "Homepage hero banners." },
+    "/administration/{memberId}": { "schema": "AdminMember", "description": "Executive leadership and Principal profiles." },
+    "/governingBody/{memberId}": { "schema": "GoverningBodyMember", "description": "Governing Body member records." },
+    "/teachers/{teacherId}": { "schema": "Teacher", "description": "Teacher directory records." },
+    "/staff/{staffId}": { "schema": "StaffMember", "description": "Staff directory records." },
+    "/classes/{classId}": { "schema": "AcademicClass", "description": "Academic class level records (Nursery to Class 10)." },
+    "/academicResources/{resourceId}": { "schema": "AcademicResource", "description": "Class routines, exam routines, syllabi, and academic calendar items." },
+    "/notices/{noticeId}": { "schema": "Notice", "description": "Official notices and office orders." },
+    "/gallery/{itemId}": { "schema": "GalleryItem", "description": "Categorized gallery photographs." },
+    "/news/{newsId}": { "schema": "NewsItem", "description": "Institutional news and achievements." },
+    "/events/{eventId}": { "schema": "EventItem", "description": "School events and activities." },
+    "/facilities/{facilityId}": { "schema": "Facility", "description": "Verified campus facilities." },
+    "/transport/{transportId}": { "schema": "TransportInfo", "description": "Verified school transport records." },
+    "/settings/{settingId}": { "schema": "SiteSetting", "description": "Public school configuration and statistics." },
+    "/contactMessages/{messageId}": { "schema": "ContactMessage", "description": "Visitor contact submissions (PII protected: public create only, admin read only)." },
+    "/admins/{adminId}": { "schema": "AdminUser", "description": "Legacy administrator lookup table." },
+    "/adminUsers/{uid}": { "schema": "AdminUserRecord", "description": "Phase 4 RBAC administrator registry (Super Admin managed only)." },
+    "/authorizedTeachers/{teacherUid}": { "schema": "AuthorizedTeacher", "description": "Trusted teacher lookup table for draft result entry." },
+    "/teacherAccessRequests/{requestId}": { "schema": "TeacherAccessRequest", "description": "Phase 5 teacher portal access requests." },
+    "/teacherMarkSubmissions/{submissionId}": { "schema": "TeacherMarkSubmission", "description": "Phase 5 teacher mark submissions awaiting administrator approval." },
+    "/attendanceRecords/{attendanceId}": { "schema": "AttendanceRecord", "description": "Phase 5 daily student attendance logs marked by teachers." },
+    "/academicYears/{yearId}": { "schema": "AcademicYear", "description": "Academic year catalog for examinations and results." },
+    "/examinations/{examId}": { "schema": "Examination", "description": "Examination definitions linked to academic years." },
+    "/students/{studentId}": { "schema": "Student", "description": "Private student enrollment records (PII protected: admin read only)." },
+    "/subjects/{subjectId}": { "schema": "SubjectConfig", "description": "Class-specific subject configurations and marks breakdowns." },
+    "/gradingRules/{ruleId}": { "schema": "GradingRule", "description": "Configurable grading formulas and GPA rules." },
+    "/resultPublication/{publicationId}": { "schema": "ResultPublication", "description": "Class-exam publication status registry." },
+    "/results/{resultId}": { "schema": "StudentResult", "description": "Student result summaries (public read ONLY when published)." },
+    "/resultSubjects/{resultSubjectId}": { "schema": "ResultSubject", "description": "Subject-wise marksheet rows (public read ONLY when published)." },
+    "/cloudDocuments/{documentId}": { "schema": "CloudDocument", "description": "Google Drive hosted academic and institutional documents (public read ONLY when isPublished == true; admin write only)." },
+    "/holidays/{holidayId}": { "schema": "Holiday", "description": "Institutional holiday and closure schedules (public read ONLY when isPublished == true)." },
+    "/schoolSettings/{settingId}": { "schema": "SchoolOperationalSetting", "description": "Operational portal toggles and academic year preferences." },
+    "/activityLogs/{logId}": { "schema": "ActivityLog", "description": "Immutable append-only administrative activity logs." }
+  }
+}
